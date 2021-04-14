@@ -1,0 +1,22 @@
+plugins {
+    id 'java'
+}
+
+group 'org.quiltmc'
+version '1.0'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compileOnly 'org.jetbrains:annotations:20.1.0'
+    implementation 'org.ow2.asm:asm:9.1'
+
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.7.0'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.7.0'
+}
+
+test {
+    useJUnitPlatform()
+}
