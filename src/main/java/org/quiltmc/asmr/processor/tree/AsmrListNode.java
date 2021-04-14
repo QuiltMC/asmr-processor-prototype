@@ -25,6 +25,7 @@ public abstract class AsmrListNode<E extends AsmrNode<E>, SELF extends AsmrListN
     abstract E newElement();
 
     public E insert(int index) {
+        ensureWritable();
         E element = newElement();
         children.add(index, element);
         return element;
@@ -35,6 +36,7 @@ public abstract class AsmrListNode<E extends AsmrNode<E>, SELF extends AsmrListN
     }
 
     public E insertCopy(int index, E element) {
+        ensureWritable();
         E newElement = element.copy(this);
         children.add(index, newElement);
         return newElement;

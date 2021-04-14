@@ -1,5 +1,7 @@
 package org.quiltmc.asmr.processor.tree;
 
+import org.quiltmc.asmr.processor.AsmrStateManager;
+
 import java.util.List;
 
 public abstract class AsmrNode<SELF extends AsmrNode<SELF>> {
@@ -28,5 +30,16 @@ public abstract class AsmrNode<SELF extends AsmrNode<SELF>> {
         SELF copy = newInstance(newParent);
         copy.copyFrom(getThis());
         return copy;
+    }
+
+    public void replace(SELF other) {
+        ensureWritable();
+        copyFrom(other);
+    }
+
+    void ensureWritable() {
+        if (!AsmrStateManager.isNodeWritable(this)) {
+            throw new IllegalStateException("Attempting to modify non-writable node");
+        }
     }
 }
