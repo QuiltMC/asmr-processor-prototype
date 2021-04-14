@@ -61,7 +61,7 @@ public abstract class AsmrListNode<E extends AsmrNode<E>, SELF extends AsmrListN
     }
 
     @Override
-    public void copyFrom(SELF other) {
+    void copyFrom(SELF other) {
         children.clear();
         for (E e : other) {
             addCopy(e);

@@ -36,7 +36,7 @@ public class AsmrValueNode<T> extends AsmrNode<AsmrValueNode<T>> {
     }
 
     @Override
-    public void copyFrom(AsmrValueNode<T> other) {
+    void copyFrom(AsmrValueNode<T> other) {
         this.value = other.value();
     }
 }

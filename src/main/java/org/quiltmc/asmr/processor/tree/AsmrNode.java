@@ -22,7 +22,7 @@ public abstract class AsmrNode<SELF extends AsmrNode<SELF>> {
 
     public abstract List<AsmrNode<?>> children();
 
-    public abstract void copyFrom(SELF other);
+    abstract void copyFrom(SELF other);
 
     public SELF copy(AsmrNode<?> newParent) {
         SELF copy = newInstance(newParent);

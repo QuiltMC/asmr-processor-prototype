@@ -1,7 +1,6 @@
 package org.quiltmc.asmr.processor.tree;
 
 import org.objectweb.asm.ClassVisitor;
-import org.quiltmc.asmr.processor.tree.asmvisitor.AsmrClassVisitor;
 
 import java.util.Arrays;
 import java.util.List;
