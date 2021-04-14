@@ -18,7 +18,7 @@ public class AsmrTreeUtil {
         int mask = 1;
         while (flags != 0) {
             if ((flags & mask) != 0) {
-                modifierList.newElement().init(mask);
+                modifierList.add().init(mask);
                 flags &= ~mask;
             }
             mask <<= 1;
