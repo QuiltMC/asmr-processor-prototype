@@ -7,7 +7,7 @@ import java.util.List;
 public abstract class AsmrNode<SELF extends AsmrNode<SELF>> {
     private final AsmrNode<?> parent;
 
-    AsmrNode(AsmrNode<?> parent) {
+    public AsmrNode(AsmrNode<?> parent) {
         this.parent = parent;
     }
 

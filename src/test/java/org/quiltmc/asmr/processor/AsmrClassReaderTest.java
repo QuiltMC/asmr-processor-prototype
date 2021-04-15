@@ -1,10 +1,10 @@
 package org.quiltmc.asmr.processor;
 
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.objectweb.asm.ClassReader;
 import org.quiltmc.asmr.processor.tree.AsmrClassListNode;
 import org.quiltmc.asmr.processor.tree.AsmrClassNode;
+import org.quiltmc.asmr.processor.tree.AsmrTreeUtil;
 import org.quiltmc.asmr.processor.tree.asmvisitor.AsmrClassVisitor;
 
 import java.io.File;
@@ -21,7 +21,7 @@ public class AsmrClassReaderTest {
     @Test
     public void testClassReader() {
         AsmrClassNode classNode = findClass(AsmrClassReaderTest.class);
-        // Put a breakpoint here to look at the contents of the class node
+        System.out.println(AsmrTreeUtil.dump(classNode));
         assertEquals(AsmrClassReaderTest.class.getName().replace('.', '/'), classNode.name().value());
     }
 

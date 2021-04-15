@@ -6,7 +6,7 @@ import java.util.List;
 public class AsmrValueNode<T> extends AsmrNode<AsmrValueNode<T>> {
     private T value;
 
-    AsmrValueNode(AsmrNode<?> parent) {
+    public AsmrValueNode(AsmrNode<?> parent) {
         super(parent);
     }
 

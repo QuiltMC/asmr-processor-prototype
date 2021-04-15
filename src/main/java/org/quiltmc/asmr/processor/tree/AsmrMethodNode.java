@@ -1,0 +1,143 @@
+package org.quiltmc.asmr.processor.tree;
+
+import org.objectweb.asm.MethodVisitor;
+
+import java.util.Arrays;
+import java.util.List;
+
+public class AsmrMethodNode extends AsmrNode<AsmrMethodNode> {
+    private final AsmrValueListNode<Integer> modifiers = new AsmrValueListNode<>(this);
+    private final AsmrValueNode<String> name = new AsmrValueNode<>(this);
+    private final AsmrValueNode<String> desc = new AsmrValueNode<>(this);
+    private final AsmrValueNode<String> signature = new AsmrValueNode<>(this);
+    private final AsmrValueListNode<String> exceptions = new AsmrValueListNode<>(this);
+
+    private final AsmrParameterListNode parameters = new AsmrParameterListNode(this);
+    private final AsmrAnnotationListNode visibleAnnotations = new AsmrAnnotationListNode(this);
+    private final AsmrAnnotationListNode invisibleAnnotations = new AsmrAnnotationListNode(this);
+    private final AsmrTypeAnnotationListNode visibleTypeAnnotations = new AsmrTypeAnnotationListNode(this);
+    private final AsmrTypeAnnotationListNode invisibleTypeAnnotations = new AsmrTypeAnnotationListNode(this);
+    private final AsmrValueNode<Integer> visibleAnnotableParameterCount = new AsmrValueNode<>(this);
+    private final AsmrAnnotationListListNode visibleParameterAnnotations = new AsmrAnnotationListListNode(this);
+    private final AsmrValueNode<Integer> invisibleAnnotableParameterCount = new AsmrValueNode<>(this);
+    private final AsmrAnnotationListListNode invisibleParameterAnnotations = new AsmrAnnotationListListNode(this);
+
+    private final AsmrAnnotationValueListNode<?> annotationDefault = new AsmrAnnotationValueListNode<>(this);
+
+    private final AsmrMethodBodyNode body = new AsmrMethodBodyNode(this);
+
+    private final List<AsmrNode<?>> children = Arrays.asList(
+            modifiers, name, desc, signature, exceptions,
+            parameters, visibleAnnotations, invisibleAnnotations, visibleTypeAnnotations, invisibleTypeAnnotations,
+            visibleAnnotableParameterCount, visibleParameterAnnotations, invisibleAnnotableParameterCount, invisibleParameterAnnotations,
+            annotationDefault,
+            body
+    );
+
+    public AsmrMethodNode(AsmrNode<?> parent) {
+        super(parent);
+    }
+
+    @Override
+    AsmrMethodNode newInstance(AsmrNode<?> parent) {
+        return new AsmrMethodNode(parent);
+    }
+
+    @Override
+    public List<AsmrNode<?>> children() {
+        return children;
+    }
+
+    @Override
+    void copyFrom(AsmrMethodNode other) {
+        modifiers.copyFrom(other.modifiers);
+        name.copyFrom(other.name);
+        desc.copyFrom(other.desc);
+        signature.copyFrom(other.signature);
+        exceptions.copyFrom(other.exceptions);
+        parameters.copyFrom(other.parameters);
+        visibleAnnotations.copyFrom(other.visibleAnnotations);
+        invisibleAnnotations.copyFrom(other.invisibleAnnotations);
+        visibleTypeAnnotations.copyFrom(other.visibleTypeAnnotations);
+        invisibleTypeAnnotations.copyFrom(other.invisibleTypeAnnotations);
+        visibleAnnotableParameterCount.copyFrom(other.visibleAnnotableParameterCount);
+        visibleParameterAnnotations.copyFrom(other.visibleParameterAnnotations);
+        invisibleAnnotableParameterCount.copyFrom(other.invisibleAnnotableParameterCount);
+        invisibleParameterAnnotations.copyFrom(other.invisibleParameterAnnotations);
+        copyAnnotationDefault(annotationDefault, other.annotationDefault);
+        body.copyFrom(other.body);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T extends AsmrNode<T>> void copyAnnotationDefault(AsmrAnnotationValueListNode<T> into, AsmrAnnotationValueListNode<?> from) {
+        into.copyFrom((AsmrAnnotationValueListNode<T>) from);
+    }
+
+    public AsmrValueListNode<Integer> modifiers() {
+        return modifiers;
+    }
+
+    public AsmrValueNode<String> name() {
+        return name;
+    }
+
+    public AsmrValueNode<String> desc() {
+        return desc;
+    }
+
+    public AsmrValueNode<String> signature() {
+        return signature;
+    }
+
+    public AsmrValueListNode<String> exceptions() {
+        return exceptions;
+    }
+
+    public AsmrParameterListNode parameters() {
+        return parameters;
+    }
+
+    public AsmrAnnotationListNode visibleAnnotations() {
+        return visibleAnnotations;
+    }
+
+    public AsmrAnnotationListNode invisibleAnnotations() {
+        return invisibleAnnotations;
+    }
+
+    public AsmrTypeAnnotationListNode visibleTypeAnnotations() {
+        return visibleTypeAnnotations;
+    }
+
+    public AsmrTypeAnnotationListNode invisibleTypeAnnotations() {
+        return invisibleTypeAnnotations;
+    }
+
+    public AsmrValueNode<Integer> visibleAnnotableParameterCount() {
+        return visibleAnnotableParameterCount;
+    }
+
+    public AsmrAnnotationListListNode visibleParameterAnnotations() {
+        return visibleParameterAnnotations;
+    }
+
+    public AsmrValueNode<Integer> invisibleAnnotableParameterCount() {
+        return invisibleAnnotableParameterCount;
+    }
+
+    public AsmrAnnotationListListNode invisibleParameterAnnotations() {
+        return invisibleParameterAnnotations;
+    }
+
+    public AsmrAnnotationValueListNode<?> annotationDefault() {
+        return annotationDefault;
+    }
+
+    public AsmrMethodBodyNode body() {
+        return body;
+    }
+
+    public void accept(MethodVisitor mv) {
+        mv.visitEnd();
+    }
+}
