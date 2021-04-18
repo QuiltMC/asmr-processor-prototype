@@ -20,12 +20,6 @@ public abstract class AsmrNamedNode<V extends AsmrNode<V>, SELF extends AsmrName
         return children;
     }
 
-    @Override
-    void copyFrom(SELF other) {
-        name.copyFrom(((AsmrNamedNode<V, SELF>) other).name);
-        value.copyFrom(((AsmrNamedNode<V, SELF>) other).value);
-    }
-
     public AsmrValueNode<String> name() {
         return name;
     }

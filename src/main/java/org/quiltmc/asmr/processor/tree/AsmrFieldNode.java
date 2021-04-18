@@ -40,19 +40,6 @@ public class AsmrFieldNode extends AsmrNode<AsmrFieldNode> {
         return children;
     }
 
-    @Override
-    void copyFrom(AsmrFieldNode other) {
-        modifiers.copyFrom(other.modifiers);
-        name.copyFrom(other.name);
-        desc.copyFrom(other.desc);
-        signature.copyFrom(other.signature);
-        value.copyFrom(other.value);
-        visibleAnnotations.copyFrom(other.visibleAnnotations);
-        invisibleAnnotations.copyFrom(other.invisibleAnnotations);
-        visibleTypeAnnotations.copyFrom(other.visibleTypeAnnotations);
-        invisibleTypeAnnotations.copyFrom(other.invisibleTypeAnnotations);
-    }
-
     public AsmrValueListNode<Integer> modifiers() {
         return modifiers;
     }

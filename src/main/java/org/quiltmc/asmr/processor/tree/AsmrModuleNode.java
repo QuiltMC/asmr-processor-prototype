@@ -40,13 +40,6 @@ public class AsmrModuleNode extends AsmrNode<AsmrModuleNode> {
         return version;
     }
 
-    @Override
-    void copyFrom(AsmrModuleNode other) {
-        name.copyFrom(other.name);
-        modifiers.copyFrom(other.modifiers);
-        version.copyFrom(other.version);
-    }
-
     public void accept(ModuleVisitor mv) {
         mv.visitEnd();
     }

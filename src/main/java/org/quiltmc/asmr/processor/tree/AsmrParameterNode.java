@@ -23,12 +23,6 @@ public class AsmrParameterNode extends AsmrNode<AsmrParameterNode> {
         return children;
     }
 
-    @Override
-    void copyFrom(AsmrParameterNode other) {
-        name.copyFrom(other.name);
-        modifiers.copyFrom(other.modifiers);
-    }
-
     public AsmrValueNode<String> name() {
         return name;
     }

@@ -25,14 +25,6 @@ public class AsmrInnerClassNode extends AsmrNode<AsmrInnerClassNode> {
         return children;
     }
 
-    @Override
-    void copyFrom(AsmrInnerClassNode other) {
-        name.copyFrom(other.name);
-        outerName.copyFrom(other.outerName);
-        innerName.copyFrom(other.innerName);
-        modifiers.copyFrom(other.modifiers);
-    }
-
     public AsmrValueNode<String> name() {
         return name;
     }

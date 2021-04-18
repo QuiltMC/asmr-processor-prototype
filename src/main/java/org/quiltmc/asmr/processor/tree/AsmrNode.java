@@ -24,7 +24,17 @@ public abstract class AsmrNode<SELF extends AsmrNode<SELF>> {
 
     public abstract List<AsmrNode<?>> children();
 
-    abstract void copyFrom(SELF other);
+    void copyFrom(SELF other) {
+        int length = this.children().size();
+        for (int i = 0; i < length; i++){
+            copyFieldFrom(other, i);
+        }
+    }
+
+    private <T extends AsmrNode<T>>void copyFieldFrom(SELF other, int i) {
+        //noinspection unchecked
+        ((AsmrNode<T>)this.children().get(i)).copyFrom((T) other.children().get(i));
+    }
 
     public SELF copy(AsmrNode<?> newParent) {
         SELF copy = newInstance(newParent);

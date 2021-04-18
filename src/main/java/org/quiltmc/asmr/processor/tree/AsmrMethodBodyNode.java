@@ -19,9 +19,4 @@ public class AsmrMethodBodyNode extends AsmrNode<AsmrMethodBodyNode> {
     public List<AsmrNode<?>> children() {
         return children;
     }
-
-    @Override
-    void copyFrom(AsmrMethodBodyNode other) {
-
-    }
 }
