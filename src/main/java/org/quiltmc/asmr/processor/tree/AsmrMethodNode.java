@@ -50,31 +50,6 @@ public class AsmrMethodNode extends AsmrNode<AsmrMethodNode> {
         return children;
     }
 
-    @Override
-    void copyFrom(AsmrMethodNode other) {
-        modifiers.copyFrom(other.modifiers);
-        name.copyFrom(other.name);
-        desc.copyFrom(other.desc);
-        signature.copyFrom(other.signature);
-        exceptions.copyFrom(other.exceptions);
-        parameters.copyFrom(other.parameters);
-        visibleAnnotations.copyFrom(other.visibleAnnotations);
-        invisibleAnnotations.copyFrom(other.invisibleAnnotations);
-        visibleTypeAnnotations.copyFrom(other.visibleTypeAnnotations);
-        invisibleTypeAnnotations.copyFrom(other.invisibleTypeAnnotations);
-        visibleAnnotableParameterCount.copyFrom(other.visibleAnnotableParameterCount);
-        visibleParameterAnnotations.copyFrom(other.visibleParameterAnnotations);
-        invisibleAnnotableParameterCount.copyFrom(other.invisibleAnnotableParameterCount);
-        invisibleParameterAnnotations.copyFrom(other.invisibleParameterAnnotations);
-        copyAnnotationDefault(annotationDefault, other.annotationDefault);
-        body.copyFrom(other.body);
-    }
-
-    @SuppressWarnings("unchecked")
-    private static <T extends AsmrNode<T>> void copyAnnotationDefault(AsmrAnnotationValueListNode<T> into, AsmrAnnotationValueListNode<?> from) {
-        into.copyFrom((AsmrAnnotationValueListNode<T>) from);
-    }
-
     public AsmrValueListNode<Integer> modifiers() {
         return modifiers;
     }

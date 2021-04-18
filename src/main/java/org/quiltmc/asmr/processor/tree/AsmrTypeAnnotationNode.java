@@ -23,13 +23,6 @@ public class AsmrTypeAnnotationNode extends AsmrAbstractAnnotationNode<AsmrTypeA
         return children;
     }
 
-    @Override
-    void copyFrom(AsmrTypeAnnotationNode other) {
-        super.copyFrom(other);
-        typeRef.copyFrom(other.typeRef);
-        typePath.copyFrom(other.typePath);
-    }
-
     public AsmrValueNode<Integer> typeRef() {
         return typeRef;
     }

@@ -10,17 +10,6 @@ public abstract class AsmrAbstractAnnotationNode<SELF extends AsmrAbstractAnnota
         super(parent);
     }
 
-    @Override
-    void copyFrom(SELF other) {
-        desc.copyFrom(((AsmrAbstractAnnotationNode<?>) other).desc);
-        copyValues(values, ((AsmrAbstractAnnotationNode<?>) other).values);
-    }
-
-    @SuppressWarnings("unchecked")
-    private static <V extends AsmrNode<V>, T extends AsmrNamedNode<V, T>> void copyValues(AsmrAnnotationNamedListNode<V, T> into, AsmrAnnotationNamedListNode<?, ?> from) {
-        into.copyFrom((AsmrAnnotationNamedListNode<V, T>) from);
-    }
-
     public AsmrValueNode<String> desc() {
         return desc;
     }

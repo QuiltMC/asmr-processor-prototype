@@ -67,31 +67,6 @@ public class AsmrClassNode extends AsmrNode<AsmrClassNode> {
         return children;
     }
 
-    @Override
-    void copyFrom(AsmrClassNode other) {
-        version.copyFrom(other.version);
-        modifiers.copyFrom(other.modifiers);
-        name.copyFrom(other.name);
-        signature.copyFrom(other.signature);
-        superclass.copyFrom(other.superclass);
-        interfaces.copyFrom(other.interfaces);
-        sourceFile.copyFrom(other.sourceFile);
-        sourceDebug.copyFrom(other.sourceDebug);
-        module.copyFrom(other.module);
-        outerClass.copyFrom(other.outerClass);
-        outerMethod.copyFrom(other.outerMethod);
-        outerMethodDesc.copyFrom(other.outerMethodDesc);
-        visibleAnnotations.copyFrom(other.visibleAnnotations);
-        invisibleAnnotations.copyFrom(other.invisibleAnnotations);
-        visibleTypeAnnotations.copyFrom(other.visibleTypeAnnotations);
-        invisibleTypeAnnotations.copyFrom(other.invisibleTypeAnnotations);
-        innerClasses.copyFrom(other.innerClasses);
-        nestHostClass.copyFrom(other.nestHostClass);
-        nestMembers.copyFrom(other.nestMembers);
-        fields.copyFrom(other.fields);
-        methods.copyFrom(other.methods);
-    }
-
     public AsmrValueNode<Integer> version() {
         return version;
     }

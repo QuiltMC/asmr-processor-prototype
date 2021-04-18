@@ -23,12 +23,6 @@ public class AsmrEnumReferenceNode extends AsmrNode<AsmrEnumReferenceNode> {
         return children;
     }
 
-    @Override
-    void copyFrom(AsmrEnumReferenceNode other) {
-        owner.copyFrom(other.owner);
-        name.copyFrom(other.name);
-    }
-
     public AsmrValueNode<String> owner() {
         return owner;
     }
