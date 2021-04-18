@@ -1,8 +1,8 @@
 package org.quiltmc.asmr.processor.tree.asmvisitor;
 
-import com.sun.xml.internal.ws.org.objectweb.asm.Type;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Type;
 import org.objectweb.asm.TypePath;
 import org.quiltmc.asmr.processor.AsmrProcessor;
 import org.quiltmc.asmr.processor.tree.AsmrAnnotationListListNode;
