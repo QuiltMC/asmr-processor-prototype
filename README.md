@@ -1,4 +1,4 @@
-# ASMR Backend Prototype
+# ASMR Prototype Prototype
 This project is intended to prototype design ideas for the ASMR backend, to see what problems may be encountered in practice.
 
 ## What is ASMR?
