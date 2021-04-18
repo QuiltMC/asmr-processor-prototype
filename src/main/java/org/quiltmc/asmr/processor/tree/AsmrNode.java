@@ -31,9 +31,9 @@ public abstract class AsmrNode<SELF extends AsmrNode<SELF>> {
         }
     }
 
-    private <T extends AsmrNode<T>>void copyFieldFrom(SELF other, int i) {
-        //noinspection unchecked
-        ((AsmrNode<T>)this.children().get(i)).copyFrom((T) other.children().get(i));
+    @SuppressWarnings("unchecked")
+    private <T extends AsmrNode<T>> void copyFieldFrom(SELF other, int i) {
+        ((AsmrNode<T>) this.children().get(i)).copyFrom((T) other.children().get(i));
     }
 
     public SELF copy(AsmrNode<?> newParent) {
