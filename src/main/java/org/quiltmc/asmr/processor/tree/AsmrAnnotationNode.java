@@ -1,10 +1,10 @@
 package org.quiltmc.asmr.processor.tree;
 
-import java.util.Collections;
+import java.util.Arrays;
 import java.util.List;
 
 public class AsmrAnnotationNode extends AsmrAbstractAnnotationNode<AsmrAnnotationNode> {
-    private final List<AsmrNode<?>> children = Collections.singletonList(descriptor());
+    private final List<AsmrNode<?>> children = Arrays.asList(desc(), values());
 
     public AsmrAnnotationNode(AsmrNode<?> parent) {
         super(parent);

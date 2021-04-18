@@ -1,6 +1,8 @@
 package org.quiltmc.asmr.processor.tree;
 
+import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.TypePath;
 
 import java.util.Arrays;
 import java.util.List;
@@ -138,6 +140,40 @@ public class AsmrMethodNode extends AsmrNode<AsmrMethodNode> {
     }
 
     public void accept(MethodVisitor mv) {
+        for (AsmrAnnotationNode annotation : visibleAnnotations) {
+            AnnotationVisitor av = mv.visitAnnotation(annotation.desc().value(), true);
+            if (av != null) {
+                annotation.accept(av);
+            }
+        }
+        for (AsmrAnnotationNode annotation : invisibleAnnotations) {
+            AnnotationVisitor av = mv.visitAnnotation(annotation.desc().value(), false);
+            if (av != null) {
+                annotation.accept(av);
+            }
+        }
+        for (AsmrTypeAnnotationNode annotation : visibleTypeAnnotations) {
+            AnnotationVisitor av = mv.visitTypeAnnotation(
+                    annotation.typeRef().value(),
+                    TypePath.fromString(AsmrTreeUtil.toNullableString(annotation.typePath().value())),
+                    annotation.desc().value(),
+                    true
+            );
+            if (av != null) {
+                annotation.accept(av);
+            }
+        }
+        for (AsmrTypeAnnotationNode annotation : invisibleTypeAnnotations) {
+            AnnotationVisitor av = mv.visitTypeAnnotation(
+                    annotation.typeRef().value(),
+                    TypePath.fromString(AsmrTreeUtil.toNullableString(annotation.typePath().value())),
+                    annotation.desc().value(),
+                    false
+            );
+            if (av != null) {
+                annotation.accept(av);
+            }
+        }
         mv.visitEnd();
     }
 }

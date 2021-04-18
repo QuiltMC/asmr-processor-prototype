@@ -6,27 +6,34 @@ public abstract class AsmrPolymorphicListNode<E extends AsmrNode<E>, SELF extend
         super(parent);
     }
 
-    abstract E newElement(Class<? extends Type<? extends E>> type);
+    abstract E newElement(Type<?> type);
 
-    public abstract Class<? extends Type<? extends E>> getType(E element);
+    public abstract Type<? extends E> getType(E element);
 
-    public E insert(int index, Class<? extends Type<? extends E>> type) {
+    // This generic type T loses the bound T extends E, but Java is stupid and you can't express that without breaking
+    // things. Because of the implementation with newElement, any attempt to pass in a Type<T> where T extends E isn't
+    // satisfied will still throw a runtime error. It sucks that this can't be a compile time error. If you find a
+    // solution to this problem that actually compiles, email me at earthcomputer@ireallyhatejava.com as a matter of
+    // urgency.
+    // @TODO: something to fix after prototype
+    @SuppressWarnings("unchecked")
+    public <T extends AsmrNode<T>> T insert(int index, Type<T> type) {
         ensureWritable();
         E element = newElement(type);
         children.add(index, element);
-        return element;
+        return (T) element;
     }
 
-    public E add(Class<? extends Type<? extends E>> type) {
+    public <T extends AsmrNode<T>> T add(Type<T> type) {
         return insert(children.size(), type);
     }
 
-    public Class<? extends Type<? extends E>> getType(int index) {
+    public Type<? extends E> getType(int index) {
         return getType(get(index));
     }
 
     @SuppressWarnings("unchecked")
-    public <T extends E> T get(int index, Class<? extends Type<? extends T>> type) {
+    public <T extends E> T get(int index, Type<? extends T> type) {
         E val = get(index);
         if (getType(val) != type) {
             throw new ClassCastException("Wrong type");

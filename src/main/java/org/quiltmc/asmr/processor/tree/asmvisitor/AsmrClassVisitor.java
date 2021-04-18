@@ -68,17 +68,17 @@ public class AsmrClassVisitor extends ClassVisitor {
     @Override
     public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
         AsmrAnnotationNode annotation = visible ? classNode.visibleAnnotations().add() : classNode.invisibleAnnotations().add();
-        annotation.descriptor().init(descriptor);
-        return null; // TODO: AsmrAnnotationVisitor
+        annotation.desc().init(descriptor);
+        return new AsmrAnnotationVisitor(annotation);
     }
 
     @Override
     public AnnotationVisitor visitTypeAnnotation(int typeRef, TypePath typePath, String descriptor, boolean visible) {
         AsmrTypeAnnotationNode annotation = visible ? classNode.visibleTypeAnnotations().add() : classNode.invisibleTypeAnnotations().add();
         annotation.typeRef().init(typeRef);
-        annotation.typePath().init(typePath);
-        annotation.descriptor().init(descriptor);
-        return null; // TODO: AsmrAnnotationVisitor
+        annotation.typePath().init(typePath == null ? "" : typePath.toString());
+        annotation.desc().init(descriptor);
+        return new AsmrAnnotationVisitor(annotation);
     }
 
     @Override

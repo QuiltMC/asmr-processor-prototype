@@ -59,7 +59,7 @@ public class AsmrTreeUtil {
 
     // For debugging purposes only!
     private static String getFieldName(AsmrNode<?> parent, AsmrNode<?> child) {
-        if (parent instanceof AsmrListNode) {
+        if (parent instanceof AsmrAbstractListNode) {
             return String.valueOf(parent.children().indexOf(child));
         } else {
             for (Class<?> clazz = parent.getClass(); clazz != Object.class; clazz = clazz.getSuperclass()) {

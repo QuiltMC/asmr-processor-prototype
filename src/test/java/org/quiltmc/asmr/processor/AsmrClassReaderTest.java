@@ -18,6 +18,14 @@ import java.util.jar.JarFile;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class AsmrClassReaderTest {
+    @interface Foo {
+        String value();
+        String[] array() default {};
+    }
+
+    @Foo(value = "bar", array = {"foo", "baz"})
+    void method() {}
+
     @Test
     public void testClassReader() {
         AsmrClassNode classNode = findClass(AsmrClassReaderTest.class);

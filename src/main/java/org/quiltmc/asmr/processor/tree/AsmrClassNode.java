@@ -5,6 +5,7 @@ import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.ModuleVisitor;
+import org.objectweb.asm.TypePath;
 
 import java.util.Arrays;
 import java.util.List;
@@ -206,25 +207,35 @@ public class AsmrClassNode extends AsmrNode<AsmrClassNode> {
             );
         }
         for (AsmrAnnotationNode annotation : visibleAnnotations) {
-            AnnotationVisitor av = cv.visitAnnotation(annotation.descriptor().value(), true);
+            AnnotationVisitor av = cv.visitAnnotation(annotation.desc().value(), true);
             if (av != null) {
                 annotation.accept(av);
             }
         }
         for (AsmrAnnotationNode annotation : invisibleAnnotations) {
-            AnnotationVisitor av = cv.visitAnnotation(annotation.descriptor().value(), false);
+            AnnotationVisitor av = cv.visitAnnotation(annotation.desc().value(), false);
             if (av != null) {
                 annotation.accept(av);
             }
         }
         for (AsmrTypeAnnotationNode annotation : visibleTypeAnnotations) {
-            AnnotationVisitor av = cv.visitTypeAnnotation(annotation.typeRef().value(), annotation.typePath().value(), annotation.descriptor().value(), true);
+            AnnotationVisitor av = cv.visitTypeAnnotation(
+                    annotation.typeRef().value(),
+                    TypePath.fromString(AsmrTreeUtil.toNullableString(annotation.typePath().value())),
+                    annotation.desc().value(),
+                    true
+            );
             if (av != null) {
                 annotation.accept(av);
             }
         }
         for (AsmrTypeAnnotationNode annotation : invisibleTypeAnnotations) {
-            AnnotationVisitor av = cv.visitTypeAnnotation(annotation.typeRef().value(), annotation.typePath().value(), annotation.descriptor().value(), false);
+            AnnotationVisitor av = cv.visitTypeAnnotation(
+                    annotation.typeRef().value(),
+                    TypePath.fromString(AsmrTreeUtil.toNullableString(annotation.typePath().value())),
+                    annotation.desc().value(),
+                    false
+            );
             if (av != null) {
                 annotation.accept(av);
             }
