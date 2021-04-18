@@ -33,7 +33,7 @@ public abstract class AsmrPolymorphicListNode<E extends AsmrNode<E>, SELF extend
     }
 
     @SuppressWarnings("unchecked")
-    public <T extends E> T get(int index, Type<? extends T> type) {
+    public <T extends AsmrNode<T>> T get(int index, Type<T> type) {
         E val = get(index);
         if (getType(val) != type) {
             throw new ClassCastException("Wrong type");
