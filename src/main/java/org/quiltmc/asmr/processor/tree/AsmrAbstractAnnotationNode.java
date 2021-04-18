@@ -63,7 +63,7 @@ public abstract class AsmrAbstractAnnotationNode<SELF extends AsmrAbstractAnnota
         acceptArray(av, parentArray.get(index, AsmrAnnotationValueListNode.ArrayType.<T>instance()));
     }
 
-    private static <T extends AsmrNode<T>> void acceptArray(AnnotationVisitor arrayVisitor, AsmrAnnotationValueListNode<T> array) {
+    static <T extends AsmrNode<T>> void acceptArray(AnnotationVisitor arrayVisitor, AsmrAnnotationValueListNode<T> array) {
         for (int i = 0; i < array.size(); i++) {
             AsmrPolymorphicListNode.Type<? extends T> type = array.getType(i);
             if (type == AsmrAnnotationValueListNode.EnumReferenceType.INSTANCE) {

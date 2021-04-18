@@ -140,6 +140,16 @@ public class AsmrMethodNode extends AsmrNode<AsmrMethodNode> {
     }
 
     public void accept(MethodVisitor mv) {
+        for (AsmrParameterNode parameter : parameters) {
+            mv.visitParameter(
+                    AsmrTreeUtil.toNullableString(parameter.name().value()),
+                    AsmrTreeUtil.modifierListToFlags(parameter.modifiers())
+            );
+        }
+        if (!annotationDefault.isEmpty()) {
+            AnnotationVisitor av = mv.visitAnnotationDefault();
+            AsmrAbstractAnnotationNode.acceptArray(av, annotationDefault);
+        }
         for (AsmrAnnotationNode annotation : visibleAnnotations) {
             AnnotationVisitor av = mv.visitAnnotation(annotation.desc().value(), true);
             if (av != null) {
@@ -172,6 +182,28 @@ public class AsmrMethodNode extends AsmrNode<AsmrMethodNode> {
             );
             if (av != null) {
                 annotation.accept(av);
+            }
+        }
+        if (visibleAnnotableParameterCount.value() > 0) {
+            mv.visitAnnotableParameterCount(visibleAnnotableParameterCount.value(), true);
+        }
+        for (int parameter = 0; parameter < visibleParameterAnnotations.size(); parameter++) {
+            for (AsmrAnnotationNode annotation : visibleParameterAnnotations.get(parameter)) {
+                AnnotationVisitor av = mv.visitParameterAnnotation(parameter, annotation.desc().value(), true);
+                if (av != null) {
+                    annotation.accept(av);
+                }
+            }
+        }
+        if (invisibleAnnotableParameterCount.value() > 0) {
+            mv.visitAnnotableParameterCount(invisibleAnnotableParameterCount.value(), false);
+        }
+        for (int parameter = 0; parameter < invisibleParameterAnnotations.size(); parameter++) {
+            for (AsmrAnnotationNode annotation : invisibleParameterAnnotations.get(parameter)) {
+                AnnotationVisitor av = mv.visitParameterAnnotation(parameter, annotation.desc().value(), false);
+                if (av != null) {
+                    annotation.accept(av);
+                }
             }
         }
         mv.visitEnd();

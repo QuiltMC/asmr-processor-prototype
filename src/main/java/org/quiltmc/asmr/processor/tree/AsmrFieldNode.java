@@ -1,6 +1,8 @@
 package org.quiltmc.asmr.processor.tree;
 
+import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.FieldVisitor;
+import org.objectweb.asm.TypePath;
 
 import java.util.Arrays;
 import java.util.List;
@@ -88,6 +90,40 @@ public class AsmrFieldNode extends AsmrNode<AsmrFieldNode> {
     }
 
     public void accept(FieldVisitor fv) {
+        for (AsmrAnnotationNode annotation : visibleAnnotations) {
+            AnnotationVisitor av = fv.visitAnnotation(annotation.desc().value(), true);
+            if (av != null) {
+                annotation.accept(av);
+            }
+        }
+        for (AsmrAnnotationNode annotation : invisibleAnnotations) {
+            AnnotationVisitor av = fv.visitAnnotation(annotation.desc().value(), false);
+            if (av != null) {
+                annotation.accept(av);
+            }
+        }
+        for (AsmrTypeAnnotationNode annotation : visibleTypeAnnotations) {
+            AnnotationVisitor av = fv.visitTypeAnnotation(
+                    annotation.typeRef().value(),
+                    TypePath.fromString(annotation.typePath().value()),
+                    annotation.desc().value(),
+                    true
+            );
+            if (av != null) {
+                annotation.accept(av);
+            }
+        }
+        for (AsmrTypeAnnotationNode annotation : invisibleTypeAnnotations) {
+            AnnotationVisitor av = fv.visitTypeAnnotation(
+                    annotation.typeRef().value(),
+                    TypePath.fromString(annotation.typePath().value()),
+                    annotation.desc().value(),
+                    false
+            );
+            if (av != null) {
+                annotation.accept(av);
+            }
+        }
         fv.visitEnd();
     }
 }

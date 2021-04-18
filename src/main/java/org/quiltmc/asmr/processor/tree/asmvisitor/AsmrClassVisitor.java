@@ -109,7 +109,7 @@ public class AsmrClassVisitor extends ClassVisitor {
         field.desc().init(descriptor);
         field.signature().init(signature);
         field.value().init(value == null ? AsmrFieldNode.NO_VALUE : value);
-        return null; // TODO: AsmrFieldVisitor
+        return new AsmrFieldVisitor(field);
     }
 
     @Override

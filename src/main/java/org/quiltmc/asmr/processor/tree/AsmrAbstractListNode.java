@@ -49,6 +49,10 @@ public abstract class AsmrAbstractListNode<E extends AsmrNode<E>, SELF extends A
         return children.size();
     }
 
+    public boolean isEmpty() {
+        return children.isEmpty();
+    }
+
     @Override
     void copyFrom(SELF other) {
         children.clear();
