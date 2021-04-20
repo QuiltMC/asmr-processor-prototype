@@ -4,9 +4,9 @@ import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.TypePath;
 import org.quiltmc.asmr.processor.AsmrProcessor;
-import org.quiltmc.asmr.processor.tree.AsmrAnnotationNode;
-import org.quiltmc.asmr.processor.tree.AsmrFieldNode;
-import org.quiltmc.asmr.processor.tree.AsmrTypeAnnotationNode;
+import org.quiltmc.asmr.processor.tree.annotation.AsmrAnnotationNode;
+import org.quiltmc.asmr.processor.tree.annotation.AsmrTypeAnnotationNode;
+import org.quiltmc.asmr.processor.tree.member.AsmrFieldNode;
 
 public class AsmrFieldVisitor extends FieldVisitor {
     private final AsmrFieldNode fieldNode;

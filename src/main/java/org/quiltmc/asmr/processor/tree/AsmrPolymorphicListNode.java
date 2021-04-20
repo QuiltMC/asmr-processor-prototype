@@ -6,7 +6,7 @@ public abstract class AsmrPolymorphicListNode<E extends AsmrNode<E>, SELF extend
         super(parent);
     }
 
-    abstract E newElement(Type<?> type);
+    protected abstract E newElement(Type<?> type);
 
     public abstract Type<? extends E> getType(E element);
 

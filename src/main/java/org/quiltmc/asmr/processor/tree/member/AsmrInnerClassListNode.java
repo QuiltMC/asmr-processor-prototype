@@ -1,0 +1,20 @@
+package org.quiltmc.asmr.processor.tree.member;
+
+import org.quiltmc.asmr.processor.tree.AsmrListNode;
+import org.quiltmc.asmr.processor.tree.AsmrNode;
+
+public class AsmrInnerClassListNode extends AsmrListNode<AsmrInnerClassNode, AsmrInnerClassListNode> {
+    public AsmrInnerClassListNode(AsmrNode<?> parent) {
+        super(parent);
+    }
+
+    @Override
+    protected AsmrInnerClassListNode newInstance(AsmrNode<?> parent) {
+        return new AsmrInnerClassListNode(parent);
+    }
+
+    @Override
+    protected AsmrInnerClassNode newElement() {
+        return new AsmrInnerClassNode(this);
+    }
+}

@@ -5,7 +5,7 @@ public abstract class AsmrListNode<E extends AsmrNode<E>, SELF extends AsmrListN
         super(parent);
     }
 
-    abstract E newElement();
+    protected abstract E newElement();
 
     public E insert(int index) {
         ensureWritable();

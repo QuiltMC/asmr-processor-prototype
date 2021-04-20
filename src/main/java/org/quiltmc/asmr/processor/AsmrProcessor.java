@@ -2,9 +2,9 @@ package org.quiltmc.asmr.processor;
 
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.Opcodes;
-import org.quiltmc.asmr.processor.tree.AsmrClassListNode;
-import org.quiltmc.asmr.processor.tree.AsmrClassNode;
 import org.quiltmc.asmr.processor.tree.asmvisitor.AsmrClassVisitor;
+import org.quiltmc.asmr.processor.tree.member.AsmrClassListNode;
+import org.quiltmc.asmr.processor.tree.member.AsmrClassNode;
 
 import java.io.IOException;
 import java.nio.file.Path;

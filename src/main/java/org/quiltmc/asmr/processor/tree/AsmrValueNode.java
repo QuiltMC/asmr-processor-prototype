@@ -26,7 +26,7 @@ public class AsmrValueNode<T> extends AsmrNode<AsmrValueNode<T>> {
     }
 
     @Override
-    AsmrValueNode<T> newInstance(AsmrNode<?> parent) {
+    protected AsmrValueNode<T> newInstance(AsmrNode<?> parent) {
         return new AsmrValueNode<>(parent);
     }
 
@@ -36,7 +36,7 @@ public class AsmrValueNode<T> extends AsmrNode<AsmrValueNode<T>> {
     }
 
     @Override
-    void copyFrom(AsmrValueNode<T> other) {
+    protected void copyFrom(AsmrValueNode<T> other) {
         this.value = other.value();
     }
 }

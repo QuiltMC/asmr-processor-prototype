@@ -9,12 +9,12 @@ public class AsmrValueListNode<T> extends AsmrListNode<AsmrValueNode<T>, AsmrVal
     }
 
     @Override
-    AsmrValueListNode<T> newInstance(AsmrNode<?> parent) {
+    protected AsmrValueListNode<T> newInstance(AsmrNode<?> parent) {
         return new AsmrValueListNode<>(parent);
     }
 
     @Override
-    AsmrValueNode<T> newElement() {
+    protected AsmrValueNode<T> newElement() {
         return new AsmrValueNode<>(this);
     }
 

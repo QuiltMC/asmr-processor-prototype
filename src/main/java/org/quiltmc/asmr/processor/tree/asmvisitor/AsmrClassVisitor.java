@@ -7,13 +7,13 @@ import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.ModuleVisitor;
 import org.objectweb.asm.TypePath;
 import org.quiltmc.asmr.processor.AsmrProcessor;
-import org.quiltmc.asmr.processor.tree.AsmrAnnotationNode;
-import org.quiltmc.asmr.processor.tree.AsmrClassNode;
-import org.quiltmc.asmr.processor.tree.AsmrFieldNode;
-import org.quiltmc.asmr.processor.tree.AsmrInnerClassNode;
-import org.quiltmc.asmr.processor.tree.AsmrMethodNode;
 import org.quiltmc.asmr.processor.tree.AsmrTreeUtil;
-import org.quiltmc.asmr.processor.tree.AsmrTypeAnnotationNode;
+import org.quiltmc.asmr.processor.tree.annotation.AsmrAnnotationNode;
+import org.quiltmc.asmr.processor.tree.annotation.AsmrTypeAnnotationNode;
+import org.quiltmc.asmr.processor.tree.member.AsmrClassNode;
+import org.quiltmc.asmr.processor.tree.member.AsmrFieldNode;
+import org.quiltmc.asmr.processor.tree.member.AsmrInnerClassNode;
+import org.quiltmc.asmr.processor.tree.member.AsmrMethodNode;
 
 public class AsmrClassVisitor extends ClassVisitor {
     public final AsmrClassNode classNode;

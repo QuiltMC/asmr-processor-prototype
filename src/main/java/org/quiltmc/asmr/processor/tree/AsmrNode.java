@@ -12,11 +12,11 @@ public abstract class AsmrNode<SELF extends AsmrNode<SELF>> {
     }
 
     @SuppressWarnings("unchecked")
-    final SELF getThis() {
+    protected final SELF getThis() {
         return (SELF) this;
     }
 
-    abstract SELF newInstance(AsmrNode<?> parent);
+    protected abstract SELF newInstance(AsmrNode<?> parent);
 
     public final AsmrNode<?> parent() {
         return parent;
@@ -24,7 +24,7 @@ public abstract class AsmrNode<SELF extends AsmrNode<SELF>> {
 
     public abstract List<AsmrNode<?>> children();
 
-    void copyFrom(SELF other) {
+    protected void copyFrom(SELF other) {
         int length = this.children().size();
         for (int i = 0; i < length; i++){
             copyFieldFrom(other, i);

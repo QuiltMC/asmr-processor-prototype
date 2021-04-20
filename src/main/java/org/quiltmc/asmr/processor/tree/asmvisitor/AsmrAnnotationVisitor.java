@@ -2,16 +2,16 @@ package org.quiltmc.asmr.processor.tree.asmvisitor;
 
 import org.objectweb.asm.AnnotationVisitor;
 import org.quiltmc.asmr.processor.AsmrProcessor;
-import org.quiltmc.asmr.processor.tree.AsmrAbstractAnnotationNode;
-import org.quiltmc.asmr.processor.tree.AsmrAnnotationNamedListNode;
-import org.quiltmc.asmr.processor.tree.AsmrAnnotationNode;
-import org.quiltmc.asmr.processor.tree.AsmrAnnotationValueListNode;
-import org.quiltmc.asmr.processor.tree.AsmrEnumReferenceNode;
-import org.quiltmc.asmr.processor.tree.AsmrNamedAnnotationNode;
-import org.quiltmc.asmr.processor.tree.AsmrNamedAnnotationValueListNode;
-import org.quiltmc.asmr.processor.tree.AsmrNamedEnumReferenceNode;
-import org.quiltmc.asmr.processor.tree.AsmrNamedValueNode;
 import org.quiltmc.asmr.processor.tree.AsmrNode;
+import org.quiltmc.asmr.processor.tree.annotation.AsmrAbstractAnnotationNode;
+import org.quiltmc.asmr.processor.tree.annotation.AsmrAnnotationNamedListNode;
+import org.quiltmc.asmr.processor.tree.annotation.AsmrAnnotationNode;
+import org.quiltmc.asmr.processor.tree.annotation.AsmrAnnotationValueListNode;
+import org.quiltmc.asmr.processor.tree.annotation.AsmrEnumReferenceNode;
+import org.quiltmc.asmr.processor.tree.annotation.AsmrNamedAnnotationNode;
+import org.quiltmc.asmr.processor.tree.annotation.AsmrNamedAnnotationValueListNode;
+import org.quiltmc.asmr.processor.tree.annotation.AsmrNamedEnumReferenceNode;
+import org.quiltmc.asmr.processor.tree.annotation.AsmrNamedValueNode;
 
 import java.lang.reflect.Array;
 

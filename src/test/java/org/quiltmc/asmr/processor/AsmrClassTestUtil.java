@@ -1,8 +1,8 @@
 package org.quiltmc.asmr.processor;
 
 import org.objectweb.asm.ClassReader;
-import org.quiltmc.asmr.processor.tree.AsmrClassListNode;
-import org.quiltmc.asmr.processor.tree.AsmrClassNode;
+import org.quiltmc.asmr.processor.tree.member.AsmrClassListNode;
+import org.quiltmc.asmr.processor.tree.member.AsmrClassNode;
 import org.quiltmc.asmr.processor.tree.asmvisitor.AsmrClassVisitor;
 
 import java.io.File;
