@@ -181,6 +181,7 @@ public class AsmrMethodNode extends AsmrNode<AsmrMethodNode> {
                 }
             }
         }
+        body.accept(mv);
         mv.visitEnd();
     }
 }
