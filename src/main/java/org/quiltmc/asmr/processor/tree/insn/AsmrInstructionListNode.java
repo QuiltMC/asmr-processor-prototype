@@ -6,7 +6,7 @@ import org.quiltmc.asmr.processor.tree.AsmrPolymorphicListNode;
 import java.util.HashMap;
 import java.util.Map;
 
-public class AsmrInstructionList<E extends AsmrAbstractInsnNode<E>> extends AsmrPolymorphicListNode<E, AsmrInstructionList<E>> {
+public class AsmrInstructionListNode<E extends AsmrAbstractInsnNode<E>> extends AsmrPolymorphicListNode<E, AsmrInstructionListNode<E>> {
     private static final Map<Class<?>, Type<?>> TYPES = new HashMap<>();
     static {
         TYPES.put(AsmrNoOperandInsnNode.class, NoOperandInsnType.INSTANCE);
@@ -25,13 +25,13 @@ public class AsmrInstructionList<E extends AsmrAbstractInsnNode<E>> extends Asmr
         TYPES.put(AsmrLineNumberNode.class, LineNumberType.INSTANCE);
     }
 
-    public AsmrInstructionList(AsmrNode<?> parent) {
+    public AsmrInstructionListNode(AsmrNode<?> parent) {
         super(parent);
     }
 
     @Override
-    protected AsmrInstructionList<E> newInstance(AsmrNode<?> parent) {
-        return new AsmrInstructionList<>(parent);
+    protected AsmrInstructionListNode<E> newInstance(AsmrNode<?> parent) {
+        return new AsmrInstructionListNode<>(parent);
     }
 
     @SuppressWarnings("unchecked")

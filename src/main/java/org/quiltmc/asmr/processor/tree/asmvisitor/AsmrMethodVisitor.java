@@ -23,7 +23,7 @@ import org.quiltmc.asmr.processor.tree.insn.AsmrFieldInsnNode;
 import org.quiltmc.asmr.processor.tree.insn.AsmrHandleNode;
 import org.quiltmc.asmr.processor.tree.insn.AsmrIincInsnNode;
 import org.quiltmc.asmr.processor.tree.insn.AsmrInsnNode;
-import org.quiltmc.asmr.processor.tree.insn.AsmrInstructionList;
+import org.quiltmc.asmr.processor.tree.insn.AsmrInstructionListNode;
 import org.quiltmc.asmr.processor.tree.insn.AsmrIntInsnNode;
 import org.quiltmc.asmr.processor.tree.insn.AsmrInvokeDynamicInsnNode;
 import org.quiltmc.asmr.processor.tree.insn.AsmrJumpInsnNode;
@@ -118,34 +118,34 @@ public class AsmrMethodVisitor extends MethodVisitor {
 
     @Override
     public void visitInsn(int opcode) {
-        AsmrNoOperandInsnNode insn = methodNode.body().instructions().add(AsmrInstructionList.NoOperandInsnType.INSTANCE);
+        AsmrNoOperandInsnNode insn = methodNode.body().instructions().add(AsmrInstructionListNode.NoOperandInsnType.INSTANCE);
         insn.opcode().init(opcode);
     }
 
     @Override
     public void visitIntInsn(int opcode, int operand) {
-        AsmrIntInsnNode insn = methodNode.body().instructions().add(AsmrInstructionList.IntInsnType.INSTANCE);
+        AsmrIntInsnNode insn = methodNode.body().instructions().add(AsmrInstructionListNode.IntInsnType.INSTANCE);
         insn.opcode().init(opcode);
         insn.operand().init(operand);
     }
 
     @Override
     public void visitVarInsn(int opcode, int var) {
-        AsmrVarInsnNode insn = methodNode.body().instructions().add(AsmrInstructionList.VarInsnType.INSTANCE);
+        AsmrVarInsnNode insn = methodNode.body().instructions().add(AsmrInstructionListNode.VarInsnType.INSTANCE);
         insn.opcode().init(opcode);
         insn.varIndex().init(getLocalVariableIndex(var));
     }
 
     @Override
     public void visitTypeInsn(int opcode, String type) {
-        AsmrTypeInsnNode insn = methodNode.body().instructions().add(AsmrInstructionList.TypeInsnType.INSTANCE);
+        AsmrTypeInsnNode insn = methodNode.body().instructions().add(AsmrInstructionListNode.TypeInsnType.INSTANCE);
         insn.opcode().init(opcode);
         insn.desc().init(type);
     }
 
     @Override
     public void visitFieldInsn(int opcode, String owner, String name, String descriptor) {
-        AsmrFieldInsnNode insn = methodNode.body().instructions().add(AsmrInstructionList.FieldInsnType.INSTANCE);
+        AsmrFieldInsnNode insn = methodNode.body().instructions().add(AsmrInstructionListNode.FieldInsnType.INSTANCE);
         insn.opcode().init(opcode);
         insn.owner().init(owner);
         insn.name().init(name);
@@ -154,7 +154,7 @@ public class AsmrMethodVisitor extends MethodVisitor {
 
     @Override
     public void visitMethodInsn(int opcode, String owner, String name, String descriptor, boolean isInterface) {
-        AsmrMethodInsnNode insn = methodNode.body().instructions().add(AsmrInstructionList.MethodInsnType.INSTANCE);
+        AsmrMethodInsnNode insn = methodNode.body().instructions().add(AsmrInstructionListNode.MethodInsnType.INSTANCE);
         insn.opcode().init(opcode);
         insn.owner().init(owner);
         insn.name().init(name);
@@ -164,7 +164,7 @@ public class AsmrMethodVisitor extends MethodVisitor {
 
     @Override
     public void visitInvokeDynamicInsn(String name, String descriptor, Handle bootstrapMethodHandle, Object... bootstrapMethodArguments) {
-        AsmrInvokeDynamicInsnNode insn = methodNode.body().instructions().add(AsmrInstructionList.InvokeDynamicInsnType.INSTANCE);
+        AsmrInvokeDynamicInsnNode insn = methodNode.body().instructions().add(AsmrInstructionListNode.InvokeDynamicInsnType.INSTANCE);
         insn.opcode().init(Opcodes.INVOKEDYNAMIC);
         insn.name().init(name);
         insn.desc().init(descriptor);
@@ -218,27 +218,27 @@ public class AsmrMethodVisitor extends MethodVisitor {
 
     @Override
     public void visitJumpInsn(int opcode, Label label) {
-        AsmrJumpInsnNode insn = methodNode.body().instructions().add(AsmrInstructionList.JumpInsnType.INSTANCE);
+        AsmrJumpInsnNode insn = methodNode.body().instructions().add(AsmrInstructionListNode.JumpInsnType.INSTANCE);
         insn.opcode().init(opcode);
         insn.label().init(getLabelIndex(label));
     }
 
     @Override
     public void visitLabel(Label label) {
-        AsmrLabelNode labelNode = methodNode.body().instructions().add(AsmrInstructionList.LabelType.INSTANCE);
+        AsmrLabelNode labelNode = methodNode.body().instructions().add(AsmrInstructionListNode.LabelType.INSTANCE);
         labelNode.label().init(getLabelIndex(label));
     }
 
     @Override
     public void visitLdcInsn(Object value) {
-        AsmrLdcInsnNode insn = methodNode.body().instructions().add(AsmrInstructionList.LdcInsnType.INSTANCE);
+        AsmrLdcInsnNode insn = methodNode.body().instructions().add(AsmrInstructionListNode.LdcInsnType.INSTANCE);
         insn.opcode().init(Opcodes.LDC);
         transferConstants(insn.cstList(), value);
     }
 
     @Override
     public void visitIincInsn(int var, int increment) {
-        AsmrIincInsnNode insn = methodNode.body().instructions().add(AsmrInstructionList.IincInsnType.INSTANCE);
+        AsmrIincInsnNode insn = methodNode.body().instructions().add(AsmrInstructionListNode.IincInsnType.INSTANCE);
         insn.opcode().init(Opcodes.IINC);
         insn.var().init(getLocalVariableIndex(var));
         insn.incr().init(increment);
@@ -246,7 +246,7 @@ public class AsmrMethodVisitor extends MethodVisitor {
 
     @Override
     public void visitTableSwitchInsn(int min, int max, Label dflt, Label... labels) {
-        AsmrSwitchInsnNode insn = methodNode.body().instructions().add(AsmrInstructionList.SwitchInsnType.INSTANCE);
+        AsmrSwitchInsnNode insn = methodNode.body().instructions().add(AsmrInstructionListNode.SwitchInsnType.INSTANCE);
         insn.opcode().init(Opcodes.TABLESWITCH);
         insn.dflt().init(getLabelIndex(dflt));
         for (int i = 0; i < labels.length; i++) {
@@ -260,7 +260,7 @@ public class AsmrMethodVisitor extends MethodVisitor {
 
     @Override
     public void visitLookupSwitchInsn(Label dflt, int[] keys, Label[] labels) {
-        AsmrSwitchInsnNode insn = methodNode.body().instructions().add(AsmrInstructionList.SwitchInsnType.INSTANCE);
+        AsmrSwitchInsnNode insn = methodNode.body().instructions().add(AsmrInstructionListNode.SwitchInsnType.INSTANCE);
         insn.opcode().init(Opcodes.LOOKUPSWITCH);
         insn.dflt().init(getLabelIndex(dflt));
         for (int i = 0; i < keys.length; i++) {
@@ -272,7 +272,7 @@ public class AsmrMethodVisitor extends MethodVisitor {
 
     @Override
     public void visitMultiANewArrayInsn(String descriptor, int numDimensions) {
-        AsmrMultiANewArrayInsnNode insn = methodNode.body().instructions().add(AsmrInstructionList.MultiANewArrayInsnType.INSTANCE);
+        AsmrMultiANewArrayInsnNode insn = methodNode.body().instructions().add(AsmrInstructionListNode.MultiANewArrayInsnType.INSTANCE);
         insn.opcode().init(Opcodes.MULTIANEWARRAY);
         insn.desc().init(descriptor);
         insn.dims().init(numDimensions);
@@ -280,7 +280,7 @@ public class AsmrMethodVisitor extends MethodVisitor {
 
     @Override
     public void visitLineNumber(int line, Label start) {
-        AsmrLineNumberNode lineNumberNode = methodNode.body().instructions().add(AsmrInstructionList.LineNumberType.INSTANCE);
+        AsmrLineNumberNode lineNumberNode = methodNode.body().instructions().add(AsmrInstructionListNode.LineNumberType.INSTANCE);
         lineNumberNode.line().init(line);
         lineNumberNode.start().init(getLabelIndex(start));
     }

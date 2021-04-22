@@ -13,7 +13,7 @@ import org.quiltmc.asmr.processor.tree.annotation.AsmrLocalVariableAnnotationTar
 import org.quiltmc.asmr.processor.tree.annotation.AsmrTypeAnnotationNode;
 import org.quiltmc.asmr.processor.tree.insn.AsmrAbstractInsnNode;
 import org.quiltmc.asmr.processor.tree.insn.AsmrInsnNode;
-import org.quiltmc.asmr.processor.tree.insn.AsmrInstructionList;
+import org.quiltmc.asmr.processor.tree.insn.AsmrInstructionListNode;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -24,7 +24,7 @@ import java.util.function.ToIntFunction;
 
 public class AsmrMethodBodyNode extends AsmrNode<AsmrMethodBodyNode> {
     private final AsmrValueListNode<AsmrIndex> localIndexes = new AsmrValueListNode<>(this);
-    private final AsmrInstructionList<?> instructions = new AsmrInstructionList<>(this);
+    private final AsmrInstructionListNode<?> instructions = new AsmrInstructionListNode<>(this);
     private final AsmrTryCatchBlockListNode tryCatchBlocks = new AsmrTryCatchBlockListNode(this);
     private final AsmrLocalVariableListNode localVariables = new AsmrLocalVariableListNode(this);
     private final AsmrLocalVariableAnnotationListNode visibleLocalVariableAnnotations = new AsmrLocalVariableAnnotationListNode(this);
@@ -51,7 +51,7 @@ public class AsmrMethodBodyNode extends AsmrNode<AsmrMethodBodyNode> {
         return localIndexes;
     }
 
-    public AsmrInstructionList<?> instructions() {
+    public AsmrInstructionListNode<?> instructions() {
         return instructions;
     }
 
