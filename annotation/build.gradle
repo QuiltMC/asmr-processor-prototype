@@ -2,9 +2,6 @@ plugins {
     id 'java'
 }
 
-group 'org.quiltmc'
-version '1.0'
-
 tasks.withType(JavaCompile).configureEach {
     // ensure that the encoding is set to UTF-8, no matter what the system default is
     // this fixes some edge cases with special characters not displaying correctly
@@ -21,6 +18,7 @@ tasks.withType(JavaCompile).configureEach {
 }
 sourceCompatibility = JavaVersion.VERSION_1_8
 targetCompatibility = JavaVersion.VERSION_1_8
+
 repositories {
     mavenCentral()
     maven {
@@ -30,15 +28,6 @@ repositories {
 }
 
 dependencies {
-    compileOnly 'org.jetbrains:annotations:20.1.0'
-    implementation 'org.ow2.asm:asm:9.1'
-
-    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.7.0'
-    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.7.0'
-    annotationProcessor project(":annotation")
-    testAnnotationProcessor project(":annotation")
-}
-
-test {
-    useJUnitPlatform()
+    implementation 'org.jetbrains:annotations:20.1.0'
+    implementation 'org.quiltmc:quilt-json5:1.0.0-rc.3'
 }
