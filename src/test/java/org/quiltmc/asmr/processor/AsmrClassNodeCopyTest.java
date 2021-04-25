@@ -3,6 +3,7 @@ package org.quiltmc.asmr.processor;
 import org.junit.jupiter.api.Test;
 import org.quiltmc.asmr.processor.tree.member.AsmrClassNode;
 import org.quiltmc.asmr.processor.tree.AsmrTreeUtil;
+import org.quiltmc.asmr.processor.verifier.FridgeVerifier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.quiltmc.asmr.processor.AsmrClassTestUtil.findClass;

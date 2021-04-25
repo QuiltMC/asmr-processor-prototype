@@ -6,53 +6,49 @@ import org.quiltmc.asmr.processor.tree.member.AsmrClassNode;
 import org.quiltmc.asmr.processor.tree.asmvisitor.AsmrClassVisitor;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.URISyntaxException;
-import java.util.jar.JarEntry;
-import java.util.jar.JarFile;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 public class AsmrClassTestUtil {
 	private AsmrClassTestUtil() {
 	}
 
-	static void findClass(Class<?> clazz, InputStreamConsumer inputConsumer) {
-		File sourceLocation;
+	public static byte[] findClassBytes(Class<?> clazz) {
+		Path sourceLocation;
 		try {
-			sourceLocation = new File(clazz.getProtectionDomain().getCodeSource().getLocation().toURI());
+			sourceLocation = Paths.get(clazz.getProtectionDomain().getCodeSource().getLocation().toURI());
 		} catch (URISyntaxException e) {
 			e.printStackTrace();
 			throw new NoClassDefFoundError(clazz.getName());
 		}
 
+		byte[] bytes;
 		try {
-			if (sourceLocation.isDirectory()) {
-				File classFile = new File(sourceLocation, clazz.getName().replace('.', File.separatorChar) + ".class");
-				try (InputStream in = new FileInputStream(classFile)) {
-					inputConsumer.accept(in);
-				}
+			if (Files.isDirectory(sourceLocation)) {
+				Path classFile = sourceLocation.resolve(clazz.getName().replace('.', File.separatorChar) + ".class");
+				bytes = Files.readAllBytes(classFile);
 			} else {
-				try (JarFile jar = new JarFile(sourceLocation)) {
-					JarEntry jarEntry = jar.getJarEntry(clazz.getName().replace('.', '/') + ".class");
-					if (jarEntry == null) {
-						throw new NoClassDefFoundError(clazz.getName());
-					}
-					inputConsumer.accept(jar.getInputStream(jarEntry));
+				try (FileSystem fs = FileSystems.newFileSystem(sourceLocation, (ClassLoader) null);) {
+					Path jarEntry = fs.getPath(clazz.getName().replace('.', '/') + ".class");
+					bytes = Files.readAllBytes(jarEntry);
 				}
 			}
 		} catch (IOException e) {
 			e.printStackTrace();
 			throw new NoClassDefFoundError(clazz.getName());
 		}
+
+		return bytes;
 	}
-
-	static AsmrClassNode findClass(Class<?> clazz) {
-		ClassReader[] classReader = new ClassReader[1];
-		findClass(clazz, inputStream -> classReader[0] = new ClassReader(inputStream));
-
+	public static AsmrClassNode findClass(Class<?> clazz) {
+		ClassReader reader = new ClassReader(findClassBytes(clazz));
 		AsmrClassNode classNode = new AsmrClassNode(null);
-		classReader[0].accept(new AsmrClassVisitor(classNode), ClassReader.SKIP_FRAMES);
+		reader.accept(new AsmrClassVisitor(classNode), ClassReader.SKIP_FRAMES);
 		return classNode;
 	}
 
@@ -99,10 +95,5 @@ public class AsmrClassTestUtil {
 		} catch (ClassNotFoundException e) {
 			throw new RuntimeException(e);
 		}
-	}
-
-	@FunctionalInterface
-	interface InputStreamConsumer {
-		void accept(InputStream inputStream) throws IOException;
 	}
 }
