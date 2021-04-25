@@ -1,5 +1,6 @@
 package org.quiltmc.asmr.processor.tree;
 
+import org.jetbrains.annotations.ApiStatus;
 import org.quiltmc.asmr.processor.AsmrStateManager;
 
 import java.util.List;
@@ -16,7 +17,8 @@ public abstract class AsmrNode<SELF extends AsmrNode<SELF>> {
         return (SELF) this;
     }
 
-    protected abstract SELF newInstance(AsmrNode<?> parent);
+    @ApiStatus.Internal
+    public abstract SELF newInstance(AsmrNode<?> parent);
 
     public final AsmrNode<?> parent() {
         return parent;
@@ -24,7 +26,8 @@ public abstract class AsmrNode<SELF extends AsmrNode<SELF>> {
 
     public abstract List<AsmrNode<?>> children();
 
-    protected void copyFrom(SELF other) {
+    @ApiStatus.Internal
+    public void copyFrom(SELF other) {
         int length = this.children().size();
         for (int i = 0; i < length; i++){
             copyFieldFrom(other, i);
@@ -40,11 +43,6 @@ public abstract class AsmrNode<SELF extends AsmrNode<SELF>> {
         SELF copy = newInstance(newParent);
         copy.copyFrom(getThis());
         return copy;
-    }
-
-    public void replace(SELF other) {
-        ensureWritable();
-        copyFrom(other);
     }
 
     void ensureWritable() {

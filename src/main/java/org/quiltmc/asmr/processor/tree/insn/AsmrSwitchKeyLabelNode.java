@@ -1,5 +1,6 @@
 package org.quiltmc.asmr.processor.tree.insn;
 
+import org.jetbrains.annotations.ApiStatus;
 import org.quiltmc.asmr.processor.tree.AsmrNode;
 import org.quiltmc.asmr.processor.tree.AsmrValueNode;
 import org.quiltmc.asmr.processor.tree.method.AsmrIndex;
@@ -17,8 +18,9 @@ public class AsmrSwitchKeyLabelNode extends AsmrNode<AsmrSwitchKeyLabelNode> {
         super(parent);
     }
 
+    @ApiStatus.Internal
     @Override
-    protected AsmrSwitchKeyLabelNode newInstance(AsmrNode<?> parent) {
+    public AsmrSwitchKeyLabelNode newInstance(AsmrNode<?> parent) {
         return new AsmrSwitchKeyLabelNode(parent);
     }
 

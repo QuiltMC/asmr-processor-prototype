@@ -1,5 +1,6 @@
 package org.quiltmc.asmr.processor.tree.member;
 
+import org.jetbrains.annotations.ApiStatus;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.FieldVisitor;
@@ -65,8 +66,9 @@ public class AsmrClassNode extends AsmrNode<AsmrClassNode> {
         super(parent);
     }
 
+    @ApiStatus.Internal
     @Override
-    protected AsmrClassNode newInstance(AsmrNode<?> parent) {
+    public AsmrClassNode newInstance(AsmrNode<?> parent) {
         return new AsmrClassNode(parent);
     }
 

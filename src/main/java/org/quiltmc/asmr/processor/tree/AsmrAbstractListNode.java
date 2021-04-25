@@ -1,5 +1,7 @@
 package org.quiltmc.asmr.processor.tree;
 
+import org.jetbrains.annotations.ApiStatus;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
@@ -29,6 +31,13 @@ public abstract class AsmrAbstractListNode<E extends AsmrNode<E>, SELF extends A
         return newElement;
     }
 
+    @SuppressWarnings("unchecked")
+    public void insertCopy(int index, AsmrAbstractListNode<? extends E, ?> other) {
+        for (E e : other) {
+            insertCopy(index++, other);
+        }
+    }
+
     public E addCopy(E element) {
         return insertCopy(children.size(), element);
     }
@@ -53,8 +62,9 @@ public abstract class AsmrAbstractListNode<E extends AsmrNode<E>, SELF extends A
         return children.isEmpty();
     }
 
+    @ApiStatus.Internal
     @Override
-    protected void copyFrom(SELF other) {
+    public void copyFrom(SELF other) {
         children.clear();
         for (E e : other) {
             addCopy(e);

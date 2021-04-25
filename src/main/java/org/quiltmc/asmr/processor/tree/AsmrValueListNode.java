@@ -1,5 +1,7 @@
 package org.quiltmc.asmr.processor.tree;
 
+import org.jetbrains.annotations.ApiStatus;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -8,8 +10,9 @@ public class AsmrValueListNode<T> extends AsmrListNode<AsmrValueNode<T>, AsmrVal
         super(parent);
     }
 
+    @ApiStatus.Internal
     @Override
-    protected AsmrValueListNode<T> newInstance(AsmrNode<?> parent) {
+    public AsmrValueListNode<T> newInstance(AsmrNode<?> parent) {
         return new AsmrValueListNode<>(parent);
     }
 

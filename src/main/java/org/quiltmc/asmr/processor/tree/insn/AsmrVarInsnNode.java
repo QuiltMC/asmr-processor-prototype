@@ -1,5 +1,6 @@
 package org.quiltmc.asmr.processor.tree.insn;
 
+import org.jetbrains.annotations.ApiStatus;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.quiltmc.asmr.processor.tree.AsmrNode;
@@ -21,8 +22,9 @@ public class AsmrVarInsnNode extends AsmrInsnNode<AsmrVarInsnNode> {
         super(parent);
     }
 
+    @ApiStatus.Internal
     @Override
-    protected AsmrVarInsnNode newInstance(AsmrNode<?> parent) {
+    public AsmrVarInsnNode newInstance(AsmrNode<?> parent) {
         return new AsmrVarInsnNode(parent);
     }
 

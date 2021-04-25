@@ -1,5 +1,6 @@
 package org.quiltmc.asmr.processor.tree.method;
 
+import org.jetbrains.annotations.ApiStatus;
 import org.quiltmc.asmr.processor.tree.AsmrNode;
 import org.quiltmc.asmr.processor.tree.AsmrValueNode;
 import org.quiltmc.asmr.processor.tree.annotation.AsmrTypeAnnotationListNode;
@@ -21,8 +22,9 @@ public class AsmrTryCatchBlockNode extends AsmrNode<AsmrTryCatchBlockNode> {
         super(parent);
     }
 
+    @ApiStatus.Internal
     @Override
-    protected AsmrTryCatchBlockNode newInstance(AsmrNode<?> parent) {
+    public AsmrTryCatchBlockNode newInstance(AsmrNode<?> parent) {
         return null;
     }
 

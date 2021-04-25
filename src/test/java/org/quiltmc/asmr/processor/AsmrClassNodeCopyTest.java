@@ -1,7 +1,6 @@
 package org.quiltmc.asmr.processor;
 
 import org.junit.jupiter.api.Test;
-import org.quiltmc.asmr.processor.tree.member.AsmrClassListNode;
 import org.quiltmc.asmr.processor.tree.member.AsmrClassNode;
 import org.quiltmc.asmr.processor.tree.AsmrTreeUtil;
 
@@ -24,7 +23,7 @@ public class AsmrClassNodeCopyTest {
 		AsmrClassNode classNode = findClass(AsmrClassNodeCopyTest.class);
 		String originalDump = AsmrTreeUtil.dump(classNode);
 
-		AsmrClassNode copy = classNode.copy(new AsmrClassListNode());
+		AsmrClassNode copy = classNode.copy(null);
 		String copyDump = AsmrTreeUtil.dump(copy);
 
 		System.out.println(originalDump);

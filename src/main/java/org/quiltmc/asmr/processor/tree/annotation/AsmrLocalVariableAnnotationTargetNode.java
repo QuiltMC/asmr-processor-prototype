@@ -1,5 +1,6 @@
 package org.quiltmc.asmr.processor.tree.annotation;
 
+import org.jetbrains.annotations.ApiStatus;
 import org.quiltmc.asmr.processor.tree.AsmrNode;
 import org.quiltmc.asmr.processor.tree.AsmrValueNode;
 import org.quiltmc.asmr.processor.tree.method.AsmrIndex;
@@ -18,8 +19,9 @@ public class AsmrLocalVariableAnnotationTargetNode extends AsmrNode<AsmrLocalVar
         super(parent);
     }
 
+    @ApiStatus.Internal
     @Override
-    protected AsmrLocalVariableAnnotationTargetNode newInstance(AsmrNode<?> parent) {
+    public AsmrLocalVariableAnnotationTargetNode newInstance(AsmrNode<?> parent) {
         return new AsmrLocalVariableAnnotationTargetNode(parent);
     }
 

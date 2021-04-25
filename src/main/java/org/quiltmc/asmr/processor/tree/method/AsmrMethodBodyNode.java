@@ -1,5 +1,6 @@
 package org.quiltmc.asmr.processor.tree.method;
 
+import org.jetbrains.annotations.ApiStatus;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
@@ -37,8 +38,9 @@ public class AsmrMethodBodyNode extends AsmrNode<AsmrMethodBodyNode> {
         super(parent);
     }
 
+    @ApiStatus.Internal
     @Override
-    protected AsmrMethodBodyNode newInstance(AsmrNode<?> parent) {
+    public AsmrMethodBodyNode newInstance(AsmrNode<?> parent) {
         return new AsmrMethodBodyNode(parent);
     }
 
@@ -162,6 +164,8 @@ public class AsmrMethodBodyNode extends AsmrNode<AsmrMethodBodyNode> {
 
             acceptLocalVariableAnnotations(mv, labelFunction, localResolver, visibleLocalVariableAnnotations, true);
             acceptLocalVariableAnnotations(mv, labelFunction, localResolver, invisibleLocalVariableAnnotations, false);
+
+            mv.visitMaxs(0, 0);
         }
     }
 

@@ -1,5 +1,6 @@
 package org.quiltmc.asmr.processor.tree.insn;
 
+import org.jetbrains.annotations.ApiStatus;
 import org.quiltmc.asmr.processor.tree.AsmrNode;
 import org.quiltmc.asmr.processor.tree.AsmrValueNode;
 
@@ -18,8 +19,9 @@ public class AsmrConstantDynamicNode extends AsmrNode<AsmrConstantDynamicNode> {
         super(parent);
     }
 
+    @ApiStatus.Internal
     @Override
-    protected AsmrConstantDynamicNode newInstance(AsmrNode<?> parent) {
+    public AsmrConstantDynamicNode newInstance(AsmrNode<?> parent) {
         return new AsmrConstantDynamicNode(parent);
     }
 

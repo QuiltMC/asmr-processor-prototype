@@ -1,5 +1,6 @@
 package org.quiltmc.asmr.processor.tree.annotation;
 
+import org.jetbrains.annotations.ApiStatus;
 import org.quiltmc.asmr.processor.tree.AsmrNode;
 import org.quiltmc.asmr.processor.tree.AsmrPolymorphicListNode;
 import org.quiltmc.asmr.processor.tree.AsmrValueNode;
@@ -26,8 +27,9 @@ public class AsmrAnnotationValueListNode<T extends AsmrNode<T>> extends AsmrPoly
         super(parent);
     }
 
+    @ApiStatus.Internal
     @Override
-    protected AsmrAnnotationValueListNode<T> newInstance(AsmrNode<?> parent) {
+    public AsmrAnnotationValueListNode<T> newInstance(AsmrNode<?> parent) {
         return new AsmrAnnotationValueListNode<>(parent);
     }
 

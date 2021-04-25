@@ -1,5 +1,6 @@
 package org.quiltmc.asmr.processor.tree.insn;
 
+import org.jetbrains.annotations.ApiStatus;
 import org.quiltmc.asmr.processor.tree.AsmrNode;
 import org.quiltmc.asmr.processor.tree.AsmrPolymorphicListNode;
 import org.quiltmc.asmr.processor.tree.AsmrValueNode;
@@ -22,8 +23,9 @@ public class AsmrConstantList<E extends AsmrNode<E>> extends AsmrPolymorphicList
         super(parent);
     }
 
+    @ApiStatus.Internal
     @Override
-    protected AsmrConstantList<E> newInstance(AsmrNode<?> parent) {
+    public AsmrConstantList<E> newInstance(AsmrNode<?> parent) {
         return new AsmrConstantList<>(parent);
     }
 
