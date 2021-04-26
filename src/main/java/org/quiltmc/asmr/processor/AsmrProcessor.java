@@ -5,6 +5,7 @@ import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.Opcodes;
+import org.quiltmc.asmr.processor.capture.AllowLambdaCapture;
 import org.quiltmc.asmr.processor.capture.AsmrCopyNodeCaputre;
 import org.quiltmc.asmr.processor.capture.AsmrCopySliceCapture;
 import org.quiltmc.asmr.processor.capture.AsmrNodeCapture;
@@ -14,6 +15,7 @@ import org.quiltmc.asmr.processor.capture.AsmrReferenceSliceCapture;
 import org.quiltmc.asmr.processor.capture.AsmrSliceCapture;
 import org.quiltmc.asmr.processor.tree.AsmrAbstractListNode;
 import org.quiltmc.asmr.processor.tree.AsmrNode;
+import org.quiltmc.asmr.processor.tree.AsmrValueNode;
 import org.quiltmc.asmr.processor.tree.asmvisitor.AsmrClassVisitor;
 import org.quiltmc.asmr.processor.tree.member.AsmrClassNode;
 
@@ -37,12 +39,13 @@ import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.jar.JarFile;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
+@AllowLambdaCapture
 public class AsmrProcessor implements AutoCloseable {
     public static final int ASM_VERSION = Opcodes.ASM9;
 
@@ -219,19 +222,22 @@ public class AsmrProcessor implements AutoCloseable {
             // TODO: sort writes by processor
             for (Write write : writes) {
                 if (write.target instanceof AsmrNodeCapture) {
-                    copyFrom(((AsmrNodeCapture<?>) write.target).resolved(), write.replacementSupplier.apply(this));
+                    copyFrom(((AsmrNodeCapture<?>) write.target).resolved(), write.replacementSupplier.get());
                 } else {
                     AsmrSliceCapture<?> sliceCapture = (AsmrSliceCapture<?>) write.target;
                     AsmrAbstractListNode<?, ?> list = sliceCapture.resolvedList();
                     int startIndex = sliceCapture.startNodeInclusive();
                     int endIndex = sliceCapture.endNodeExclusive();
                     list.remove(startIndex, endIndex);
-                    insertCopy(list, startIndex, (AsmrAbstractListNode<?, ?>) write.replacementSupplier.apply(this));
+                    insertCopy(list, startIndex, (AsmrAbstractListNode<?, ?>) write.replacementSupplier.get());
                 }
             }
         });
 
         modifiedClasses.addAll(writes.keySet());
+        for (String className : writes.keySet()) {
+            classInfoCache.remove(className);
+        }
 
         writes.clear();
     }
@@ -318,7 +324,7 @@ public class AsmrProcessor implements AutoCloseable {
     }
 
     @SuppressWarnings("unchecked")
-    public <T extends AsmrNode<T>> void addWrite(AsmrTransformer transformer, AsmrNodeCapture<T> target, Function<AsmrProcessor, ? extends T> replacementSupplier) {
+    public <T extends AsmrNode<T>> void addWrite(AsmrTransformer transformer, AsmrNodeCapture<T> target, Supplier<? extends T> replacementSupplier) {
         if (transformer == null) {
             throw new NullPointerException();
         }
@@ -326,12 +332,12 @@ public class AsmrProcessor implements AutoCloseable {
             throw new IllegalArgumentException("Target must be a reference capture, not a copy capture");
         }
         AsmrReferenceCapture refTarget = (AsmrReferenceCapture) target;
-        Write write = new Write(transformer, refTarget, (Function<AsmrProcessor, AsmrNode<?>>) replacementSupplier);
+        Write write = new Write(transformer, refTarget, (Supplier<AsmrNode<?>>) replacementSupplier);
         writes.computeIfAbsent(refTarget.className(), k -> new ConcurrentLinkedQueue<>()).add(write);
     }
 
     @SuppressWarnings("unchecked")
-    public <T extends AsmrNode<T>, L extends AsmrAbstractListNode<T, L>> void addWrite(AsmrTransformer transformer, AsmrSliceCapture<T> target, Function<AsmrProcessor, L> replacementSupplier) {
+    public <T extends AsmrNode<T>, L extends AsmrAbstractListNode<T, L>> void addWrite(AsmrTransformer transformer, AsmrSliceCapture<T> target, Supplier<L> replacementSupplier) {
         if (transformer == null) {
             throw new NullPointerException();
         }
@@ -339,7 +345,7 @@ public class AsmrProcessor implements AutoCloseable {
             throw new IllegalArgumentException("Target must be a reference capture, not a copy capture");
         }
         AsmrReferenceCapture refTarget = (AsmrReferenceCapture) target;
-        Write write = new Write(transformer, refTarget, (Function<AsmrProcessor, AsmrNode<?>>) (Function<AsmrProcessor, ?>) replacementSupplier);
+        Write write = new Write(transformer, refTarget, (Supplier<AsmrNode<?>>) (Supplier<?>) replacementSupplier);
         writes.computeIfAbsent(refTarget.className(), k -> new ConcurrentLinkedQueue<>()).add(write);
     }
 
@@ -352,6 +358,17 @@ public class AsmrProcessor implements AutoCloseable {
 
     private ClassInfo getClassInfo(String type) {
         return classInfoCache.computeIfAbsent(type, type1 -> {
+            ClassProvider classProvider = allClasses.get(type1);
+            if (classProvider != null && classProvider.modifiedClass != null) {
+                boolean isInterface = false;
+                for (AsmrValueNode<Integer> modifier : classProvider.modifiedClass.modifiers()) {
+                    if (modifier.value() == Opcodes.ACC_INTERFACE) {
+                        isInterface = true;
+                    }
+                }
+                return new ClassInfo(classProvider.modifiedClass.superclass().value(), isInterface);
+            }
+
             byte[] bytecode;
             try {
                 bytecode = platform.getClassBytecode(type1);
@@ -385,7 +402,12 @@ public class AsmrProcessor implements AutoCloseable {
     private boolean isDerivedFrom(String subtype, String supertype) {
         subtype = getClassInfo(subtype).superClass;
 
+        Set<String> visitedTypes = new HashSet<>();
+
         while (subtype != null) {
+            if (!visitedTypes.add(subtype)) {
+                return false;
+            }
             if (supertype.equals(subtype)) {
                 return true;
             }
@@ -457,9 +479,9 @@ public class AsmrProcessor implements AutoCloseable {
     private static class Write {
         public final AsmrTransformer transformer;
         public final AsmrReferenceCapture target;
-        public final Function<AsmrProcessor, AsmrNode<?>> replacementSupplier;
+        public final Supplier<AsmrNode<?>> replacementSupplier;
 
-        public Write(AsmrTransformer transformer, AsmrReferenceCapture target, Function<AsmrProcessor, AsmrNode<?>> replacementSupplier) {
+        public Write(AsmrTransformer transformer, AsmrReferenceCapture target, Supplier<AsmrNode<?>> replacementSupplier) {
             this.transformer = transformer;
             this.target = target;
             this.replacementSupplier = replacementSupplier;

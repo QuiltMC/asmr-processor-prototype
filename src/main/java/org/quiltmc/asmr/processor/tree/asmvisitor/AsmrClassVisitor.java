@@ -107,7 +107,7 @@ public class AsmrClassVisitor extends ClassVisitor {
         AsmrTreeUtil.flagsToModifierList(access, field.modifiers());
         field.name().init(name);
         field.desc().init(descriptor);
-        field.signature().init(signature);
+        field.signature().init(AsmrTreeUtil.fromNullableString(signature));
         field.value().init(value == null ? AsmrFieldNode.NO_VALUE : value);
         return new AsmrFieldVisitor(field);
     }

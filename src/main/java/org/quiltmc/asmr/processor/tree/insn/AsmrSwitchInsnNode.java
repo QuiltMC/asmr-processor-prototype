@@ -64,8 +64,8 @@ public class AsmrSwitchInsnNode extends AsmrInsnNode<AsmrSwitchInsnNode> {
             }
         }
         // find min and max key
-        int minKey = relevantKeyLabels.get(relevantKeyLabels.size() - 1).key().value();
-        int maxKey = relevantKeyLabels.get(0).key().value();
+        int minKey = relevantKeyLabels.get(0).key().value();
+        int maxKey = relevantKeyLabels.get(relevantKeyLabels.size() - 1).key().value();
 
         // decide which instruction to use
         // see: http://hg.openjdk.java.net/jdk8/jdk8/langtools/file/30db5e0aaf83/src/share/classes/com/sun/tools/javac/jvm/Gen.java#l1153

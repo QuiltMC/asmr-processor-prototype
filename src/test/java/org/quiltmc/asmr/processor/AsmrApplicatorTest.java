@@ -1,6 +1,5 @@
 package org.quiltmc.asmr.processor;
 
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.quiltmc.asmr.processor.capture.AsmrNodeCapture;
 import org.quiltmc.asmr.processor.tree.AsmrValueNode;
@@ -45,7 +44,7 @@ public class AsmrApplicatorTest {
                                     AsmrValueNode<String> helloNode = ldcNode.cstList().get(0, AsmrConstantList.StringType.INSTANCE);
                                     if (helloNode.value().equals("Hello World!")) {
                                         AsmrNodeCapture<AsmrValueNode<String>> helloCapture = processor.refCapture(helloNode);
-                                        processor.addWrite(this, helloCapture, processor1 -> {
+                                        processor.addWrite(this, helloCapture, () -> {
                                             return new AsmrValueNode<String>(null).init("Hello Earth!");
                                         });
                                     }
