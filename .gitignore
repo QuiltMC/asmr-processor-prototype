@@ -1,6 +1,8 @@
 /.gradle/
 /build/
-/annotation/build/
+/annotations/build/
+/internalProcessor/build/
+/testProcessor/build/
 
 /.idea/
 *.iml
