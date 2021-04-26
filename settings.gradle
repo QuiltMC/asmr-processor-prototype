@@ -1,3 +1,5 @@
 rootProject.name = 'asmr-backend-prototype'
 
-include 'annotation'
+include 'annotations'
+include 'internalProcessor'
+include 'testProcessor'

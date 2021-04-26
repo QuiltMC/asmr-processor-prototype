@@ -5,6 +5,7 @@ import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.Opcodes;
+import org.quiltmc.asmr.processor.annotation.HideFromTransformers;
 import org.quiltmc.asmr.processor.capture.AllowLambdaCapture;
 import org.quiltmc.asmr.processor.capture.AsmrCopyNodeCaputre;
 import org.quiltmc.asmr.processor.capture.AsmrCopySliceCapture;
