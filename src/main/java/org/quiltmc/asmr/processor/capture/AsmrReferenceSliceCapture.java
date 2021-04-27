@@ -34,7 +34,7 @@ public class AsmrReferenceSliceCapture<T extends AsmrNode<T>, L extends AsmrAbst
     @Override
     public void computeResolved(AsmrProcessor processor) {
         listCapture.computeResolved(processor);
-        L resolvedList = listCapture.resolved();
+        L resolvedList = listCapture.resolved(processor);
         if (endIndex >= resolvedList.typedChildren().size()) {
             throw new IllegalStateException("Reference slice index out of bounds");
         }
@@ -45,19 +45,19 @@ public class AsmrReferenceSliceCapture<T extends AsmrNode<T>, L extends AsmrAbst
     }
 
     @Override
-    public AsmrAbstractListNode<T, ?> resolvedList() {
-        return listCapture.resolved();
+    public AsmrAbstractListNode<T, ?> resolvedList(AsmrProcessor processor) {
+        return listCapture.resolved(processor);
     }
 
     @Override
-    public int startNodeInclusive() {
-        resolvedStartIndex = find(listCapture.resolved(), resolvedStart, resolvedStartIndex);
+    public int startNodeInclusive(AsmrProcessor processor) {
+        resolvedStartIndex = find(listCapture.resolved(processor), resolvedStart, resolvedStartIndex);
         return startInclusive ? resolvedStartIndex : resolvedStartIndex + 1;
     }
 
     @Override
-    public int endNodeExclusive() {
-        resolvedEndIndex = find(listCapture.resolved(), resolvedEnd, resolvedEndIndex);
+    public int endNodeExclusive(AsmrProcessor processor) {
+        resolvedEndIndex = find(listCapture.resolved(processor), resolvedEnd, resolvedEndIndex);
         return endInclusive ? resolvedEndIndex + 1 : resolvedEndIndex;
     }
 

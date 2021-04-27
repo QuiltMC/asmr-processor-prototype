@@ -1,7 +1,14 @@
 package org.quiltmc.asmr.processor.tree;
 
+import org.jetbrains.annotations.ApiStatus;
+
 public abstract class AsmrPolymorphicListNode<E extends AsmrNode<E>, SELF extends AsmrPolymorphicListNode<E, SELF>>
         extends AsmrAbstractListNode<E, SELF> {
+    public AsmrPolymorphicListNode() {
+        this(null);
+    }
+
+    @ApiStatus.Internal
     public AsmrPolymorphicListNode(AsmrNode<?> parent) {
         super(parent);
     }

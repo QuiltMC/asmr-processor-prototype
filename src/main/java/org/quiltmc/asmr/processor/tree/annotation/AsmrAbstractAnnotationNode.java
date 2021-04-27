@@ -1,5 +1,6 @@
 package org.quiltmc.asmr.processor.tree.annotation;
 
+import org.jetbrains.annotations.ApiStatus;
 import org.objectweb.asm.AnnotationVisitor;
 import org.quiltmc.asmr.processor.tree.AsmrNode;
 import org.quiltmc.asmr.processor.tree.AsmrPolymorphicListNode;
@@ -9,6 +10,11 @@ public abstract class AsmrAbstractAnnotationNode<SELF extends AsmrAbstractAnnota
     private final AsmrValueNode<String> desc = new AsmrValueNode<>(this);
     private final AsmrAnnotationNamedListNode<?, ?> values = new AsmrAnnotationNamedListNode<>(this);
 
+    public AsmrAbstractAnnotationNode() {
+        this(null);
+    }
+
+    @ApiStatus.Internal
     public AsmrAbstractAnnotationNode(AsmrNode<?> parent) {
         super(parent);
     }

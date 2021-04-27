@@ -34,6 +34,11 @@ public class AsmrFieldNode extends AsmrNode<AsmrFieldNode> {
             visibleAnnotations, invisibleAnnotations, visibleTypeAnnotations, invisibleTypeAnnotations
     );
 
+    public AsmrFieldNode() {
+        this(null);
+    }
+
+    @ApiStatus.Internal
     public AsmrFieldNode(AsmrNode<?> parent) {
         super(parent);
     }

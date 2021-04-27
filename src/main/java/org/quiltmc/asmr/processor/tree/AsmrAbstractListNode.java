@@ -11,6 +11,11 @@ import java.util.stream.Stream;
 public abstract class AsmrAbstractListNode<E extends AsmrNode<E>, SELF extends AsmrAbstractListNode<E, SELF>> extends AsmrNode<SELF> implements Iterable<E> {
     final List<E> children = new ArrayList<>();
 
+    public AsmrAbstractListNode() {
+        this(null);
+    }
+
+    @ApiStatus.Internal
     public AsmrAbstractListNode(AsmrNode<?> parent) {
         super(parent);
     }

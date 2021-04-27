@@ -1,6 +1,13 @@
 package org.quiltmc.asmr.processor.tree;
 
+import org.jetbrains.annotations.ApiStatus;
+
 public abstract class AsmrListNode<E extends AsmrNode<E>, SELF extends AsmrListNode<E, SELF>> extends AsmrAbstractListNode<E, SELF> implements Iterable<E> {
+    public AsmrListNode() {
+        this(null);
+    }
+
+    @ApiStatus.Internal
     public AsmrListNode(AsmrNode<?> parent) {
         super(parent);
     }

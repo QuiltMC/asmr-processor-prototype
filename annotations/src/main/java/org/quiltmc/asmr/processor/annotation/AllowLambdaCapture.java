@@ -1,4 +1,4 @@
-package org.quiltmc.asmr.processor.capture;
+package org.quiltmc.asmr.processor.annotation;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

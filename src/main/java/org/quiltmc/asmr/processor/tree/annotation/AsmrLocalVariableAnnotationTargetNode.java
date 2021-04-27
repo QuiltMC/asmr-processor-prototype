@@ -15,6 +15,11 @@ public class AsmrLocalVariableAnnotationTargetNode extends AsmrNode<AsmrLocalVar
 
     private final List<AsmrNode<?>> children = Arrays.asList(start, end, index);
 
+    public AsmrLocalVariableAnnotationTargetNode() {
+        this(null);
+    }
+
+    @ApiStatus.Internal
     public AsmrLocalVariableAnnotationTargetNode(AsmrNode<?> parent) {
         super(parent);
     }

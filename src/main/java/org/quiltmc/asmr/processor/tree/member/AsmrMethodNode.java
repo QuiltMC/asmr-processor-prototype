@@ -51,6 +51,11 @@ public class AsmrMethodNode extends AsmrNode<AsmrMethodNode> {
             body
     );
 
+    public AsmrMethodNode() {
+        this(null);
+    }
+
+    @ApiStatus.Internal
     public AsmrMethodNode(AsmrNode<?> parent) {
         super(parent);
     }

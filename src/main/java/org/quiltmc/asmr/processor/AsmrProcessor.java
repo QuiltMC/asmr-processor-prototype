@@ -5,8 +5,8 @@ import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.Opcodes;
+import org.quiltmc.asmr.processor.annotation.AllowLambdaCapture;
 import org.quiltmc.asmr.processor.annotation.HideFromTransformers;
-import org.quiltmc.asmr.processor.capture.AllowLambdaCapture;
 import org.quiltmc.asmr.processor.capture.AsmrCopyNodeCaputre;
 import org.quiltmc.asmr.processor.capture.AsmrCopySliceCapture;
 import org.quiltmc.asmr.processor.capture.AsmrNodeCapture;
@@ -16,6 +16,7 @@ import org.quiltmc.asmr.processor.capture.AsmrReferenceSliceCapture;
 import org.quiltmc.asmr.processor.capture.AsmrSliceCapture;
 import org.quiltmc.asmr.processor.tree.AsmrAbstractListNode;
 import org.quiltmc.asmr.processor.tree.AsmrNode;
+import org.quiltmc.asmr.processor.tree.AsmrTreeModificationManager;
 import org.quiltmc.asmr.processor.tree.AsmrValueNode;
 import org.quiltmc.asmr.processor.tree.asmvisitor.AsmrClassVisitor;
 import org.quiltmc.asmr.processor.tree.member.AsmrClassNode;
@@ -31,10 +32,16 @@ import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
+import java.util.Queue;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
@@ -57,7 +64,12 @@ public class AsmrProcessor implements AutoCloseable {
     private final List<AsmrTransformer> transformers = new ArrayList<>();
     private final TreeMap<String, ClassProvider> allClasses = new TreeMap<>();
     private final TreeMap<String, String> config = new TreeMap<>();
+    private List<String> anchors = Arrays.asList("READ_VANILLA", "NO_WRITE"); // TODO: discuss a more comprehensive list
 
+    private AsmrTransformerPhase currentPhase = null;
+    private final ThreadLocal<String> currentWritingClass = new ThreadLocal<>();
+    private final Map<String, List<String>> roundDependents = new HashMap<>();
+    private final Map<String, List<String>> writeDependents = new HashMap<>();
     private ConcurrentHashMap<String, ConcurrentLinkedQueue<Consumer<AsmrClassNode>>> requestedClasses = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, ConcurrentLinkedQueue<AsmrReferenceCapture>> referenceCaptures = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, ConcurrentLinkedQueue<Write>> writes = new ConcurrentHashMap<>();
@@ -157,6 +169,14 @@ public class AsmrProcessor implements AutoCloseable {
         config.put(key, value);
     }
 
+    /**
+     * Sets a custom list of read/write round anchors.
+     */
+    @HideFromTransformers
+    public void setAnchors(List<String> anchors) {
+        this.anchors = anchors;
+    }
+
     @HideFromTransformers
     @Override
     public void close() throws IOException {
@@ -173,12 +193,102 @@ public class AsmrProcessor implements AutoCloseable {
             return;
         }
 
-        // TODO: compute a loop of these
-        runReadWriteRound();
+        for (int i = 1; i < anchors.size(); i++) {
+            roundDependents.computeIfAbsent(anchors.get(i - 1), k -> new ArrayList<>()).add(anchors.get(i));
+        }
+
+        boolean wasModificationEnabled = AsmrTreeModificationManager.isModificationEnabled();
+        try {
+            AsmrTreeModificationManager.disableModification();
+
+            // apply phase
+            currentPhase = AsmrTransformerPhase.APPLY;
+            for (AsmrTransformer transformer : transformers) {
+                transformer.apply(this);
+            }
+            currentPhase = null;
+
+            List<List<AsmrTransformer>> rounds = computeRounds();
+
+            for (List<AsmrTransformer> round : rounds) {
+                runReadWriteRound(round);
+            }
+
+        } finally {
+            if (wasModificationEnabled) {
+                AsmrTreeModificationManager.enableModification();
+            }
+        }
     }
 
-    private void runReadWriteRound() {
+    private List<List<AsmrTransformer>> computeRounds() {
+        if (transformers.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        Map<String, Integer> inDegrees = new HashMap<>();
+        roundDependents.forEach((parent, dependents) -> {
+            for (String dependent : dependents) {
+                inDegrees.merge(dependent, 1, Integer::sum);
+            }
+            inDegrees.putIfAbsent(parent, 0);
+        });
+
+        for (AsmrTransformer transformer : transformers) {
+            String transformerId = transformer.getClass().getName();
+            inDegrees.putIfAbsent(transformerId, 0);
+        }
+
+        Map<String, Integer> depths = new HashMap<>(inDegrees.size());
+        Queue<String> queue = new LinkedList<>();
+        inDegrees.forEach((id, inDegree) -> {
+            if (inDegree == 0) {
+                queue.add(id);
+                depths.put(id, 0);
+            }
+        });
+
+        int visited = 0;
+        int maxDepth = 0;
+
+        while (!queue.isEmpty()) {
+            String transformerId = queue.remove();
+            visited++;
+            List<String> dependents = roundDependents.get(transformerId);
+            if (dependents != null && !dependents.isEmpty()) {
+                int nextDepth = depths.get(transformerId) + 1;
+                maxDepth = Math.max(nextDepth, maxDepth);
+                for (String dependent : dependents) {
+                    int inDegree = inDegrees.get(dependent) - 1;
+                    inDegrees.put(dependent, inDegree);
+                    depths.merge(dependent, nextDepth, Math::max);
+                    if (inDegree == 0) {
+                        queue.add(dependent);
+                    }
+                }
+            }
+        }
+        if (visited != inDegrees.size()) {
+            // TODO: report which transformers have cyclic dependencies
+            throw new IllegalStateException("Cyclic round dependencies");
+        }
+
+        List<List<AsmrTransformer>> rounds = new ArrayList<>(maxDepth + 1);
+        for (int i = 0; i <= maxDepth; i++) {
+            rounds.add(new ArrayList<>());
+        }
+        for (AsmrTransformer transformer : transformers) {
+            String transformerId = transformer.getClass().getName();
+            rounds.get(depths.get(transformerId)).add(transformer);
+        }
+        rounds.removeIf(List::isEmpty);
+
+        return rounds;
+    }
+
+    private void runReadWriteRound(List<AsmrTransformer> transformers) {
         // read phase
+        currentPhase = AsmrTransformerPhase.READ;
         transformers.parallelStream().forEach(transformer -> transformer.read(this));
 
         while (!this.requestedClasses.isEmpty()) {
@@ -202,38 +312,50 @@ public class AsmrProcessor implements AutoCloseable {
         // TODO: detect conflicts
 
         // write phase
-        writes.entrySet().parallelStream().forEach(entry -> {
-            String className = entry.getKey();
-            ConcurrentLinkedQueue<Write> writes = entry.getValue();
+        currentPhase = AsmrTransformerPhase.WRITE;
+        try {
+            AsmrTreeModificationManager.enableModification();
+            writes.entrySet().parallelStream().forEach(entry -> {
+                String className = entry.getKey();
+                ConcurrentLinkedQueue<Write> writes = entry.getValue();
 
-            try {
-                ClassProvider classProvider = allClasses.get(className);
-                classProvider.modifiedClass = classProvider.get();
-            } catch (IOException e) {
-                throw new UncheckedIOException("Error reading class, did it get deleted?", e);
-            }
-
-            ConcurrentLinkedQueue<AsmrReferenceCapture> refCaptures = referenceCaptures.get(className);
-            if (refCaptures != null) {
-                for (AsmrReferenceCapture refCapture : refCaptures) {
-                    refCapture.computeResolved(this);
+                try {
+                    ClassProvider classProvider = allClasses.get(className);
+                    classProvider.modifiedClass = classProvider.get();
+                } catch (IOException e) {
+                    throw new UncheckedIOException("Error reading class, did it get deleted?", e);
                 }
-            }
 
-            // TODO: sort writes by processor
-            for (Write write : writes) {
-                if (write.target instanceof AsmrNodeCapture) {
-                    copyFrom(((AsmrNodeCapture<?>) write.target).resolved(), write.replacementSupplier.get());
-                } else {
-                    AsmrSliceCapture<?> sliceCapture = (AsmrSliceCapture<?>) write.target;
-                    AsmrAbstractListNode<?, ?> list = sliceCapture.resolvedList();
-                    int startIndex = sliceCapture.startNodeInclusive();
-                    int endIndex = sliceCapture.endNodeExclusive();
-                    list.remove(startIndex, endIndex);
-                    insertCopy(list, startIndex, (AsmrAbstractListNode<?, ?>) write.replacementSupplier.get());
+                try {
+                    currentWritingClass.set(className);
+
+                    ConcurrentLinkedQueue<AsmrReferenceCapture> refCaptures = referenceCaptures.remove(className);
+                    if (refCaptures != null) {
+                        for (AsmrReferenceCapture refCapture : refCaptures) {
+                            refCapture.computeResolved(this);
+                        }
+                    }
+
+                    // TODO: sort writes by processor
+                    for (Write write : writes) {
+                        if (write.target instanceof AsmrNodeCapture) {
+                            copyFrom(((AsmrNodeCapture<?>) write.target).resolved(this), write.replacementSupplier.get());
+                        } else {
+                            AsmrSliceCapture<?> sliceCapture = (AsmrSliceCapture<?>) write.target;
+                            AsmrAbstractListNode<?, ?> list = sliceCapture.resolvedList(this);
+                            int startIndex = sliceCapture.startNodeInclusive(this);
+                            int endIndex = sliceCapture.endNodeExclusive(this);
+                            list.remove(startIndex, endIndex);
+                            insertCopy(list, startIndex, (AsmrAbstractListNode<?, ?>) write.replacementSupplier.get());
+                        }
+                    }
+                } finally {
+                    currentWritingClass.set(null);
                 }
-            }
-        });
+            });
+        } finally {
+            AsmrTreeModificationManager.disableModification();
+        }
 
         modifiedClasses.addAll(writes.keySet());
         for (String className : writes.keySet()) {
@@ -241,6 +363,9 @@ public class AsmrProcessor implements AutoCloseable {
         }
 
         writes.clear();
+        referenceCaptures.clear();
+
+        currentPhase = null;
     }
 
     @SuppressWarnings("unchecked")
@@ -277,11 +402,44 @@ public class AsmrProcessor implements AutoCloseable {
 
     // ===== TRANSFORMER METHODS ===== //
 
+    /**
+     * Causes the current transformer to run in a round after the other transformer
+     */
+    public void addRoundDependency(AsmrTransformer self, String otherTransformerId) {
+        checkPhase(AsmrTransformerPhase.APPLY);
+        roundDependents.computeIfAbsent(otherTransformerId, k -> new ArrayList<>()).add(self.getClass().getName());
+    }
+
+    /**
+     * Causes the current transformer to run in a round before the other transformer
+     */
+    public void addRoundDependent(AsmrTransformer self, String otherTransformerId) {
+        checkPhase(AsmrTransformerPhase.APPLY);
+        roundDependents.computeIfAbsent(self.getClass().getName(), k -> new ArrayList<>()).add(otherTransformerId);
+    }
+
+    /**
+     * Causes the current transformer to write as if after the other transformer
+     */
+    public void addWriteDependency(AsmrTransformer self, String otherTransformerId) {
+        checkPhase(AsmrTransformerPhase.APPLY);
+        writeDependents.computeIfAbsent(otherTransformerId, k -> new ArrayList<>()).add(self.getClass().getName());
+    }
+
+    /**
+     * Causes the current transformer to write as if before the other transformer
+     */
+    public void addWriteDependent(AsmrTransformer self, String otherTransformerId) {
+        checkPhase(AsmrTransformerPhase.APPLY);
+        writeDependents.computeIfAbsent(self.getClass().getName(), k -> new ArrayList<>()).add(otherTransformerId);
+    }
+
     public boolean classExists(String name) {
         return allClasses.containsKey(name);
     }
 
     public void withClass(String name, Consumer<AsmrClassNode> callback) {
+        checkPhase(AsmrTransformerPhase.READ);
         if (!allClasses.containsKey(name)) {
             throw new IllegalArgumentException("Class not found: " + name);
         }
@@ -289,6 +447,7 @@ public class AsmrProcessor implements AutoCloseable {
     }
 
     public void withClasses(Predicate<String> namePredicate, Consumer<AsmrClassNode> callback) {
+        checkPhase(AsmrTransformerPhase.READ);
         for (String className : allClasses.keySet()) {
             if (namePredicate.test(className)) {
                 requestedClasses.computeIfAbsent(className, k -> new ConcurrentLinkedQueue<>()).add(callback);
@@ -305,20 +464,24 @@ public class AsmrProcessor implements AutoCloseable {
     }
 
     public <T extends AsmrNode<T>> AsmrNodeCapture<T> copyCapture(T node) {
+        checkPhase(AsmrTransformerPhase.READ);
         return new AsmrCopyNodeCaputre<>(node);
     }
 
     public <T extends AsmrNode<T>> AsmrNodeCapture<T> refCapture(T node) {
+        checkPhase(AsmrTransformerPhase.READ);
         AsmrReferenceNodeCapture<T> capture = new AsmrReferenceNodeCapture<>(node);
         referenceCaptures.computeIfAbsent(capture.className(), k -> new ConcurrentLinkedQueue<>()).add(capture);
         return capture;
     }
 
     public <T extends AsmrNode<T>> AsmrSliceCapture<T> copyCapture(AsmrAbstractListNode<T, ?> list, int startInclusive, int endExclusive) {
+        checkPhase(AsmrTransformerPhase.READ);
         return new AsmrCopySliceCapture<>(list, startInclusive, endExclusive);
     }
 
     public <T extends AsmrNode<T>> AsmrSliceCapture<T> refCapture(AsmrAbstractListNode<T, ?> list, int startIndex, int endIndex, boolean startInclusive, boolean endInclusive) {
+        checkPhase(AsmrTransformerPhase.READ);
         AsmrReferenceSliceCapture<T, ?> capture = new AsmrReferenceSliceCapture<>(list, startIndex, endIndex, startInclusive, endInclusive);
         referenceCaptures.computeIfAbsent(capture.className(), k -> new ConcurrentLinkedQueue<>()).add(capture);
         return capture;
@@ -326,6 +489,7 @@ public class AsmrProcessor implements AutoCloseable {
 
     @SuppressWarnings("unchecked")
     public <T extends AsmrNode<T>> void addWrite(AsmrTransformer transformer, AsmrNodeCapture<T> target, Supplier<? extends T> replacementSupplier) {
+        checkPhase(AsmrTransformerPhase.READ);
         if (transformer == null) {
             throw new NullPointerException();
         }
@@ -339,6 +503,7 @@ public class AsmrProcessor implements AutoCloseable {
 
     @SuppressWarnings("unchecked")
     public <T extends AsmrNode<T>, L extends AsmrAbstractListNode<T, L>> void addWrite(AsmrTransformer transformer, AsmrSliceCapture<T> target, Supplier<L> replacementSupplier) {
+        checkPhase(AsmrTransformerPhase.READ);
         if (transformer == null) {
             throw new NullPointerException();
         }
@@ -348,6 +513,22 @@ public class AsmrProcessor implements AutoCloseable {
         AsmrReferenceCapture refTarget = (AsmrReferenceCapture) target;
         Write write = new Write(transformer, refTarget, (Supplier<AsmrNode<?>>) (Supplier<?>) replacementSupplier);
         writes.computeIfAbsent(refTarget.className(), k -> new ConcurrentLinkedQueue<>()).add(write);
+    }
+
+    public <T extends AsmrNode<T>> void substitute(T target, AsmrNodeCapture<T> source) {
+        checkPhase(AsmrTransformerPhase.WRITE);
+        target.copyFrom(source.resolved(this));
+    }
+
+    @SuppressWarnings("unchecked")
+    public <E extends AsmrNode<E>, L extends AsmrAbstractListNode<E, L>> void substitute(L target, int index, AsmrSliceCapture<E> source) {
+        checkPhase(AsmrTransformerPhase.WRITE);
+        L resolvedList = (L) source.resolvedList(this);
+        int startIndex = source.startNodeInclusive(this);
+        int endIndex = source.endNodeExclusive(this);
+        for (int i = startIndex; i < endIndex; i++) {
+            target.insertCopy(index + i, resolvedList.get(i));
+        }
     }
 
     @Nullable
@@ -379,11 +560,11 @@ public class AsmrProcessor implements AutoCloseable {
 
             ClassReader reader = new ClassReader(bytecode);
 
-            class SuperclassClassVisitor extends ClassVisitor {
+            class ClassInfoVisitor extends ClassVisitor {
                 String superName;
                 boolean isInterface;
 
-                SuperclassClassVisitor() {
+                ClassInfoVisitor() {
                     super(ASM_VERSION);
                 }
 
@@ -394,7 +575,7 @@ public class AsmrProcessor implements AutoCloseable {
                 }
             }
 
-            SuperclassClassVisitor cv = new SuperclassClassVisitor();
+            ClassInfoVisitor cv = new ClassInfoVisitor();
             reader.accept(cv, ClassReader.SKIP_CODE);
             return new ClassInfo(cv.superName, cv.isInterface);
         });
@@ -442,6 +623,20 @@ public class AsmrProcessor implements AutoCloseable {
         return type1;
     }
 
+    @ApiStatus.Internal
+    public void checkPhase(AsmrTransformerPhase expectedPhase) {
+        if (currentPhase != expectedPhase) {
+            throw new IllegalStateException("This operation is only allowed in a " + expectedPhase + " transformer phase");
+        }
+    }
+
+    @ApiStatus.Internal
+    public void checkWritingClass(String className) {
+        if (!className.equals(currentWritingClass.get())) {
+            throw new IllegalStateException("This operation is only allowed while writing class '" + className + "' but was writing '" + currentWritingClass.get() + "'");
+        }
+    }
+
     private static class ClassProvider {
         private WeakReference<AsmrClassNode> cachedClass = null;
         public AsmrClassNode modifiedClass = null;
@@ -465,8 +660,16 @@ public class AsmrProcessor implements AutoCloseable {
             }
             InputStream inputStream = inputStreamSupplier.get();
             ClassReader classReader = new ClassReader(inputStream);
-            AsmrClassNode val = new AsmrClassNode(null);
-            classReader.accept(new AsmrClassVisitor(val), ClassReader.SKIP_FRAMES);
+            AsmrClassNode val = new AsmrClassNode();
+            boolean wasModificationEnabled = AsmrTreeModificationManager.isModificationEnabled();
+            try {
+                AsmrTreeModificationManager.enableModification();
+                classReader.accept(new AsmrClassVisitor(val), ClassReader.SKIP_FRAMES);
+            } finally {
+                if (!wasModificationEnabled) {
+                    AsmrTreeModificationManager.disableModification();
+                }
+            }
             cachedClass = new WeakReference<>(val);
             return val;
         }

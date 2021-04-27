@@ -18,6 +18,11 @@ public class AsmrLineNumberNode extends AsmrAbstractInsnNode<AsmrLineNumberNode>
 
     private final List<AsmrNode<?>> children = Arrays.asList(line, start);
 
+    public AsmrLineNumberNode() {
+        this(null);
+    }
+
+    @ApiStatus.Internal
     public AsmrLineNumberNode(AsmrNode<?> parent) {
         super(parent);
     }

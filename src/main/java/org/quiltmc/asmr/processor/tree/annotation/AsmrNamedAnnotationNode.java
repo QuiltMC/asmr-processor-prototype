@@ -4,6 +4,11 @@ import org.jetbrains.annotations.ApiStatus;
 import org.quiltmc.asmr.processor.tree.AsmrNode;
 
 public class AsmrNamedAnnotationNode extends AsmrNamedNode<AsmrAnnotationNode, AsmrNamedAnnotationNode> {
+    public AsmrNamedAnnotationNode() {
+        this(null);
+    }
+
+    @ApiStatus.Internal
     public AsmrNamedAnnotationNode(AsmrNode<?> parent) {
         super(parent);
     }

@@ -1,13 +1,17 @@
 package org.quiltmc.asmr.processor.tree;
 
 import org.jetbrains.annotations.ApiStatus;
-import org.quiltmc.asmr.processor.AsmrStateManager;
 
 import java.util.List;
 
 public abstract class AsmrNode<SELF extends AsmrNode<SELF>> {
     private final AsmrNode<?> parent;
 
+    public AsmrNode() {
+        this(null);
+    }
+
+    @ApiStatus.Internal
     public AsmrNode(AsmrNode<?> parent) {
         this.parent = parent;
     }
@@ -29,7 +33,7 @@ public abstract class AsmrNode<SELF extends AsmrNode<SELF>> {
     @ApiStatus.Internal
     public void copyFrom(SELF other) {
         int length = this.children().size();
-        for (int i = 0; i < length; i++){
+        for (int i = 0; i < length; i++) {
             copyFieldFrom(other, i);
         }
     }
@@ -46,8 +50,8 @@ public abstract class AsmrNode<SELF extends AsmrNode<SELF>> {
     }
 
     void ensureWritable() {
-        if (!AsmrStateManager.isNodeWritable(this)) {
-            throw new IllegalStateException("Attempting to modify non-writable node");
+        if (!AsmrTreeModificationManager.isModificationEnabled()) {
+            throw new IllegalStateException("Attempting to modify ASMR tree when modification is not enabled");
         }
     }
 }

@@ -15,6 +15,11 @@ public class AsmrConstantDynamicNode extends AsmrNode<AsmrConstantDynamicNode> {
 
     private final List<AsmrNode<?>> children = Arrays.asList(name, desc, bsm, bsmArgs);
 
+    public AsmrConstantDynamicNode() {
+        this(null);
+    }
+
+    @ApiStatus.Internal
     public AsmrConstantDynamicNode(AsmrNode<?> parent) {
         super(parent);
     }

@@ -34,6 +34,11 @@ public class AsmrMethodBodyNode extends AsmrNode<AsmrMethodBodyNode> {
     private final List<AsmrNode<?>> children = Arrays.asList(localIndexes, instructions, tryCatchBlocks, localVariables,
             visibleLocalVariableAnnotations, invisibleLocalVariableAnnotations);
 
+    public AsmrMethodBodyNode() {
+        this(null);
+    }
+
+    @ApiStatus.Internal
     public AsmrMethodBodyNode(AsmrNode<?> parent) {
         super(parent);
     }

@@ -19,6 +19,11 @@ public class AsmrIincInsnNode extends AsmrInsnNode<AsmrIincInsnNode> {
     private final List<AsmrNode<?>> children = Arrays.asList(visibleTypeAnnotations(), invisibleTypeAnnotations(),
             opcode(), var, incr);
 
+    public AsmrIincInsnNode() {
+        this(null);
+    }
+
+    @ApiStatus.Internal
     public AsmrIincInsnNode(AsmrNode<?> parent) {
         super(parent);
     }

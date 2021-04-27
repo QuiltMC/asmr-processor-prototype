@@ -14,6 +14,11 @@ public class AsmrSwitchKeyLabelNode extends AsmrNode<AsmrSwitchKeyLabelNode> {
 
     private final List<AsmrNode<?>> children = Arrays.asList(key, label);
 
+    public AsmrSwitchKeyLabelNode() {
+        this(null);
+    }
+
+    @ApiStatus.Internal
     public AsmrSwitchKeyLabelNode(AsmrNode<?> parent) {
         super(parent);
     }

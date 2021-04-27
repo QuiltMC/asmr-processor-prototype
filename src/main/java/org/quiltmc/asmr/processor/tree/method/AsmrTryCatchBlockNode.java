@@ -18,6 +18,11 @@ public class AsmrTryCatchBlockNode extends AsmrNode<AsmrTryCatchBlockNode> {
 
     private final List<AsmrNode<?>> children = Arrays.asList(start, end, handler, type, visibleTypeAnnotations, invisibleTypeAnnotations);
 
+    public AsmrTryCatchBlockNode() {
+        this(null);
+    }
+
+    @ApiStatus.Internal
     public AsmrTryCatchBlockNode(AsmrNode<?> parent) {
         super(parent);
     }

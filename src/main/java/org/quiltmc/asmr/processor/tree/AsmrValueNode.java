@@ -8,6 +8,11 @@ import java.util.List;
 public class AsmrValueNode<T> extends AsmrNode<AsmrValueNode<T>> {
     private T value;
 
+    public AsmrValueNode() {
+        this(null);
+    }
+
+    @ApiStatus.Internal
     public AsmrValueNode(AsmrNode<?> parent) {
         super(parent);
     }

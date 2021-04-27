@@ -61,8 +61,8 @@ public class AsmrReferenceNodeCapture<T extends AsmrNode<T>> implements AsmrNode
     }
 
     @Override
-    public T resolved() {
-        // TODO: deny reference resolutions to classes other than the current class in the write phase
+    public T resolved(AsmrProcessor processor) {
+        processor.checkWritingClass(className);
         return resolved;
     }
 

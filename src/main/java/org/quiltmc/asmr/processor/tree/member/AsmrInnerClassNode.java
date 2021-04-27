@@ -16,6 +16,11 @@ public class AsmrInnerClassNode extends AsmrNode<AsmrInnerClassNode> {
 
     private final List<AsmrNode<?>> children = Arrays.asList(name, outerName, innerName, modifiers);
 
+    public AsmrInnerClassNode() {
+        this(null);
+    }
+
+    @ApiStatus.Internal
     public AsmrInnerClassNode(AsmrNode<?> parent) {
         super(parent);
     }

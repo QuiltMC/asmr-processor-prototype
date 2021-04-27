@@ -5,6 +5,11 @@ import org.quiltmc.asmr.processor.tree.AsmrListNode;
 import org.quiltmc.asmr.processor.tree.AsmrNode;
 
 public class AsmrAnnotationListNode extends AsmrListNode<AsmrAnnotationNode, AsmrAnnotationListNode> {
+    public AsmrAnnotationListNode() {
+        this(null);
+    }
+
+    @ApiStatus.Internal
     public AsmrAnnotationListNode(AsmrNode<?> parent) {
         super(parent);
     }

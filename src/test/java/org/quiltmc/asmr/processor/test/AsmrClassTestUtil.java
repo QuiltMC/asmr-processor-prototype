@@ -49,7 +49,7 @@ public class AsmrClassTestUtil {
 	}
 	public static AsmrClassNode findClass(Class<?> clazz) {
 		ClassReader reader = new ClassReader(findClassBytes(clazz));
-		AsmrClassNode classNode = new AsmrClassNode(null);
+		AsmrClassNode classNode = new AsmrClassNode();
 		reader.accept(new AsmrClassVisitor(classNode), ClassReader.SKIP_FRAMES);
 		return classNode;
 	}

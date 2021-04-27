@@ -21,6 +21,11 @@ public class AsmrMethodInsnNode extends AsmrInsnNode<AsmrMethodInsnNode> {
     private final List<AsmrNode<?>> children = Arrays.asList(visibleTypeAnnotations(), invisibleTypeAnnotations(),
             opcode(), owner, name, desc, itf);
 
+    public AsmrMethodInsnNode() {
+        this(null);
+    }
+
+    @ApiStatus.Internal
     public AsmrMethodInsnNode(AsmrNode<?> parent) {
         super(parent);
     }

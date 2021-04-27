@@ -6,6 +6,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class AsmrValueListNode<T> extends AsmrListNode<AsmrValueNode<T>, AsmrValueListNode<T>> {
+    public AsmrValueListNode() {
+        this(null);
+    }
+
+    @ApiStatus.Internal
     public AsmrValueListNode(AsmrNode<?> parent) {
         super(parent);
     }

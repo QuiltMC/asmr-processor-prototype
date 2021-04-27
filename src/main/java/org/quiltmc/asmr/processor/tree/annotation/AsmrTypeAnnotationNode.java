@@ -13,6 +13,11 @@ public class AsmrTypeAnnotationNode extends AsmrAbstractAnnotationNode<AsmrTypeA
 
     private final List<AsmrNode<?>> children = Arrays.asList(desc(), values(), typeRef, typePath);
 
+    public AsmrTypeAnnotationNode() {
+        this(null);
+    }
+
+    @ApiStatus.Internal
     public AsmrTypeAnnotationNode(AsmrNode<?> parent) {
         super(parent);
     }

@@ -9,6 +9,11 @@ import java.util.List;
 public class AsmrAnnotationNode extends AsmrAbstractAnnotationNode<AsmrAnnotationNode> {
     private final List<AsmrNode<?>> children = Arrays.asList(desc(), values());
 
+    public AsmrAnnotationNode() {
+        this(null);
+    }
+
+    @ApiStatus.Internal
     public AsmrAnnotationNode(AsmrNode<?> parent) {
         super(parent);
     }

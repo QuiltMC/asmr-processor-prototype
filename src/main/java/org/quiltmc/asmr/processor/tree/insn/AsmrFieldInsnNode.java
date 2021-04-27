@@ -20,6 +20,11 @@ public class AsmrFieldInsnNode extends AsmrInsnNode<AsmrFieldInsnNode> {
     private final List<AsmrNode<?>> children = Arrays.asList(visibleTypeAnnotations(), invisibleTypeAnnotations(),
             opcode(), owner, name, desc);
 
+    public AsmrFieldInsnNode() {
+        this(null);
+    }
+
+    @ApiStatus.Internal
     public AsmrFieldInsnNode(AsmrNode<?> parent) {
         super(parent);
     }

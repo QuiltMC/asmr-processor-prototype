@@ -1,6 +1,7 @@
 package org.quiltmc.asmr.processor.tree.annotation;
 
 import org.jetbrains.annotations.ApiStatus;
+import org.objectweb.asm.Type;
 import org.quiltmc.asmr.processor.tree.AsmrNode;
 import org.quiltmc.asmr.processor.tree.AsmrPolymorphicListNode;
 
@@ -10,6 +11,7 @@ import java.util.Map;
 public class AsmrAnnotationNamedListNode<V extends AsmrNode<V>, E extends AsmrNamedNode<V, E>>
         extends AsmrPolymorphicListNode<E, AsmrAnnotationNamedListNode<V, E>> {
     private static final Map<Class<?>, Type<?>> VALUE_TYPE_TO_TYPE = new HashMap<>();
+
     static {
         VALUE_TYPE_TO_TYPE.put(Byte.class, ByteType.INSTANCE);
         VALUE_TYPE_TO_TYPE.put(Boolean.class, BooleanType.INSTANCE);
@@ -23,6 +25,11 @@ public class AsmrAnnotationNamedListNode<V extends AsmrNode<V>, E extends AsmrNa
         VALUE_TYPE_TO_TYPE.put(org.objectweb.asm.Type.class, ClassType.INSTANCE);
     }
 
+    public AsmrAnnotationNamedListNode() {
+        this(null);
+    }
+
+    @ApiStatus.Internal
     public AsmrAnnotationNamedListNode(AsmrNode<?> parent) {
         super(parent);
     }
@@ -69,25 +76,42 @@ public class AsmrAnnotationNamedListNode<V extends AsmrNode<V>, E extends AsmrNa
         throw new IllegalArgumentException(element + " is not of an annotation value list type");
     }
 
-    public interface AnnotationNamedListType<T> extends Type<T> {}
-    public enum ByteType implements AnnotationNamedListType<AsmrNamedValueNode<Byte>> { INSTANCE }
-    public enum BooleanType implements AnnotationNamedListType<AsmrNamedValueNode<Boolean>> { INSTANCE }
-    public enum CharType implements AnnotationNamedListType<AsmrNamedValueNode<Character>> { INSTANCE }
-    public enum ShortType implements AnnotationNamedListType<AsmrNamedValueNode<Short>> { INSTANCE }
-    public enum IntType implements AnnotationNamedListType<AsmrNamedValueNode<Integer>> { INSTANCE }
-    public enum LongType implements AnnotationNamedListType<AsmrNamedValueNode<Long>> { INSTANCE }
-    public enum FloatType implements AnnotationNamedListType<AsmrNamedValueNode<Float>> { INSTANCE }
-    public enum DoubleType implements AnnotationNamedListType<AsmrNamedValueNode<Double>> { INSTANCE }
-    public enum StringType implements AnnotationNamedListType<AsmrNamedValueNode<String>> { INSTANCE }
-    public enum ClassType implements AnnotationNamedListType<AsmrNamedValueNode<org.objectweb.asm.Type>> { INSTANCE }
-    public enum EnumReferenceType implements AnnotationNamedListType<AsmrNamedEnumReferenceNode> { INSTANCE }
-    public enum AnnotationType implements AnnotationNamedListType<AsmrNamedAnnotationNode> { INSTANCE }
+    public interface AnnotationNamedListType<T> extends Type<T> {
+    }
+
+    public enum ByteType implements AnnotationNamedListType<AsmrNamedValueNode<Byte>> {INSTANCE}
+
+    public enum BooleanType implements AnnotationNamedListType<AsmrNamedValueNode<Boolean>> {INSTANCE}
+
+    public enum CharType implements AnnotationNamedListType<AsmrNamedValueNode<Character>> {INSTANCE}
+
+    public enum ShortType implements AnnotationNamedListType<AsmrNamedValueNode<Short>> {INSTANCE}
+
+    public enum IntType implements AnnotationNamedListType<AsmrNamedValueNode<Integer>> {INSTANCE}
+
+    public enum LongType implements AnnotationNamedListType<AsmrNamedValueNode<Long>> {INSTANCE}
+
+    public enum FloatType implements AnnotationNamedListType<AsmrNamedValueNode<Float>> {INSTANCE}
+
+    public enum DoubleType implements AnnotationNamedListType<AsmrNamedValueNode<Double>> {INSTANCE}
+
+    public enum StringType implements AnnotationNamedListType<AsmrNamedValueNode<String>> {INSTANCE}
+
+    public enum ClassType implements AnnotationNamedListType<AsmrNamedValueNode<org.objectweb.asm.Type>> {INSTANCE}
+
+    public enum EnumReferenceType implements AnnotationNamedListType<AsmrNamedEnumReferenceNode> {INSTANCE}
+
+    public enum AnnotationType implements AnnotationNamedListType<AsmrNamedAnnotationNode> {INSTANCE}
+
     public static class ArrayType<T extends AsmrNode<T>> implements AnnotationNamedListType<AsmrNamedAnnotationValueListNode<T>> {
         private static final ArrayType<?> INSTANCE = new ArrayType<>();
+
         @SuppressWarnings("unchecked")
         public static <T extends AsmrNode<T>> ArrayType<T> instance() {
             return (ArrayType<T>) INSTANCE;
         }
-        private ArrayType() {}
+
+        private ArrayType() {
+        }
     }
 }

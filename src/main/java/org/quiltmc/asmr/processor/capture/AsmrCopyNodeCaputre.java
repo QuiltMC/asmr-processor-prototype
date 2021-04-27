@@ -1,6 +1,7 @@
 package org.quiltmc.asmr.processor.capture;
 
 import org.jetbrains.annotations.ApiStatus;
+import org.quiltmc.asmr.processor.AsmrProcessor;
 import org.quiltmc.asmr.processor.tree.AsmrNode;
 
 @ApiStatus.Internal
@@ -12,7 +13,7 @@ public class AsmrCopyNodeCaputre<T extends AsmrNode<T>> implements AsmrNodeCaptu
     }
 
     @Override
-    public T resolved() {
+    public T resolved(AsmrProcessor processor) {
         return value;
     }
 }

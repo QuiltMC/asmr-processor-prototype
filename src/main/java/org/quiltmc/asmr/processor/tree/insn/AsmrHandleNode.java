@@ -18,6 +18,11 @@ public class AsmrHandleNode extends AsmrNode<AsmrHandleNode> {
 
     private final List<AsmrNode<?>> children = Arrays.asList(tag, owner, name, desc, itf);
 
+    public AsmrHandleNode() {
+        this(null);
+    }
+
+    @ApiStatus.Internal
     public AsmrHandleNode(AsmrNode<?> parent) {
         super(parent);
     }

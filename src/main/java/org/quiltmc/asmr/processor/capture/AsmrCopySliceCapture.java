@@ -1,6 +1,7 @@
 package org.quiltmc.asmr.processor.capture;
 
 import org.jetbrains.annotations.ApiStatus;
+import org.quiltmc.asmr.processor.AsmrProcessor;
 import org.quiltmc.asmr.processor.tree.AsmrAbstractListNode;
 import org.quiltmc.asmr.processor.tree.AsmrNode;
 
@@ -16,17 +17,17 @@ public class AsmrCopySliceCapture<T extends AsmrNode<T>> implements AsmrSliceCap
     }
 
     @Override
-    public AsmrAbstractListNode<T, ?> resolvedList() {
+    public AsmrAbstractListNode<T, ?> resolvedList(AsmrProcessor processor) {
         return list;
     }
 
     @Override
-    public int startNodeInclusive() {
+    public int startNodeInclusive(AsmrProcessor processor) {
         return 0;
     }
 
     @Override
-    public int endNodeExclusive() {
+    public int endNodeExclusive(AsmrProcessor processor) {
         return list.size();
     }
 }

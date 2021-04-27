@@ -14,6 +14,11 @@ public class AsmrParameterNode extends AsmrNode<AsmrParameterNode> {
 
     private final List<AsmrNode<?>> children = Arrays.asList(name, modifiers);
 
+    public AsmrParameterNode() {
+        this(null);
+    }
+
+    @ApiStatus.Internal
     public AsmrParameterNode(AsmrNode<?> parent) {
         super(parent);
     }

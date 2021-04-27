@@ -13,6 +13,11 @@ public class AsmrEnumReferenceNode extends AsmrNode<AsmrEnumReferenceNode> {
 
     private final List<AsmrNode<?>> children = Arrays.asList(owner, name);
 
+    public AsmrEnumReferenceNode() {
+        this(null);
+    }
+
+    @ApiStatus.Internal
     public AsmrEnumReferenceNode(AsmrNode<?> parent) {
         super(parent);
     }

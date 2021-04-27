@@ -24,6 +24,11 @@ public class AsmrInvokeDynamicInsnNode extends AsmrInsnNode<AsmrInvokeDynamicIns
     private final List<AsmrNode<?>> children = Arrays.asList(visibleTypeAnnotations(), invisibleTypeAnnotations(),
             opcode(), name, desc, bsm, bsmArgs);
 
+    public AsmrInvokeDynamicInsnNode() {
+        this(null);
+    }
+
+    @ApiStatus.Internal
     public AsmrInvokeDynamicInsnNode(AsmrNode<?> parent) {
         super(parent);
     }

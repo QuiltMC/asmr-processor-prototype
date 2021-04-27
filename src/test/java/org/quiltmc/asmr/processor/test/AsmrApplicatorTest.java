@@ -35,6 +35,10 @@ public class AsmrApplicatorTest {
 
     public static class TestTransformer implements AsmrTransformer {
         @Override
+        public void apply(AsmrProcessor processor) {
+        }
+
+        @Override
         public void read(AsmrProcessor processor) {
             processor.withClass("org/quiltmc/asmr/processor/test/AsmrApplicatorTest$TestTargetClass", classNode -> {
                 for (AsmrMethodNode method : classNode.methods()) {
@@ -47,7 +51,7 @@ public class AsmrApplicatorTest {
                                     if (helloNode.value().equals("Hello World!")) {
                                         AsmrNodeCapture<AsmrValueNode<String>> helloCapture = processor.refCapture(helloNode);
                                         processor.addWrite(this, helloCapture, () -> {
-                                            return new AsmrValueNode<String>(null).init("Hello Earth!");
+                                            return new AsmrValueNode<String>().init("Hello Earth!");
                                         });
                                     }
                                 }

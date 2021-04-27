@@ -18,6 +18,11 @@ public class AsmrModuleNode extends AsmrNode<AsmrModuleNode> {
 
     private final List<AsmrNode<?>> children = Arrays.asList(name, modifiers, version);
 
+    public AsmrModuleNode() {
+        this(null);
+    }
+
+    @ApiStatus.Internal
     public AsmrModuleNode(AsmrNode<?> parent) {
         super(parent);
     }

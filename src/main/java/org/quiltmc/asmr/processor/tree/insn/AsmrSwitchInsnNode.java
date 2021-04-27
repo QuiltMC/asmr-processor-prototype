@@ -21,6 +21,11 @@ public class AsmrSwitchInsnNode extends AsmrInsnNode<AsmrSwitchInsnNode> {
     private final List<AsmrNode<?>> children = Arrays.asList(visibleTypeAnnotations(), invisibleTypeAnnotations(),
             opcode(), dflt, labels);
 
+    public AsmrSwitchInsnNode() {
+        this(null);
+    }
+
+    @ApiStatus.Internal
     public AsmrSwitchInsnNode(AsmrNode<?> parent) {
         super(parent);
     }

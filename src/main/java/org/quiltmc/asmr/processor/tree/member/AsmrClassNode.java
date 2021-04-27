@@ -62,14 +62,14 @@ public class AsmrClassNode extends AsmrNode<AsmrClassNode> {
             fields, methods
     );
 
-    public AsmrClassNode(AsmrNode<?> parent) {
-        super(parent);
+    public AsmrClassNode() {
+        super(null);
     }
 
     @ApiStatus.Internal
     @Override
     public AsmrClassNode newInstance(AsmrNode<?> parent) {
-        return new AsmrClassNode(parent);
+        return new AsmrClassNode();
     }
 
     @Override

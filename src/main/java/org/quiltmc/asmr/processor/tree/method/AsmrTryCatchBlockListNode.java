@@ -5,6 +5,11 @@ import org.quiltmc.asmr.processor.tree.AsmrListNode;
 import org.quiltmc.asmr.processor.tree.AsmrNode;
 
 public class AsmrTryCatchBlockListNode extends AsmrListNode<AsmrTryCatchBlockNode, AsmrTryCatchBlockListNode> {
+    public AsmrTryCatchBlockListNode() {
+        this(null);
+    }
+
+    @ApiStatus.Internal
     public AsmrTryCatchBlockListNode(AsmrNode<?> parent) {
         super(parent);
     }

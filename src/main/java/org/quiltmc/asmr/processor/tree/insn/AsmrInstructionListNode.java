@@ -9,6 +9,7 @@ import java.util.Map;
 
 public class AsmrInstructionListNode<E extends AsmrAbstractInsnNode<E>> extends AsmrPolymorphicListNode<E, AsmrInstructionListNode<E>> {
     private static final Map<Class<?>, Type<?>> TYPES = new HashMap<>();
+
     static {
         TYPES.put(AsmrNoOperandInsnNode.class, NoOperandInsnType.INSTANCE);
         TYPES.put(AsmrIntInsnNode.class, IntInsnType.INSTANCE);
@@ -26,6 +27,11 @@ public class AsmrInstructionListNode<E extends AsmrAbstractInsnNode<E>> extends 
         TYPES.put(AsmrLineNumberNode.class, LineNumberType.INSTANCE);
     }
 
+    public AsmrInstructionListNode() {
+        this(null);
+    }
+
+    @ApiStatus.Internal
     public AsmrInstructionListNode(AsmrNode<?> parent) {
         super(parent);
     }
@@ -58,63 +64,136 @@ public class AsmrInstructionListNode<E extends AsmrAbstractInsnNode<E>> extends 
     }
 
     @FunctionalInterface
-    private interface ElementCreator { AsmrAbstractInsnNode<?> create(AsmrNode<?> parent); }
-    public interface InstructionType<T> extends Type<T>, ElementCreator {}
+    private interface ElementCreator {
+        AsmrAbstractInsnNode<?> create(AsmrNode<?> parent);
+    }
+
+    public interface InstructionType<T> extends Type<T>, ElementCreator {
+    }
 
     public enum NoOperandInsnType implements InstructionType<AsmrNoOperandInsnNode> {
         INSTANCE;
-        @Override public AsmrAbstractInsnNode<?> create(AsmrNode<?> parent) { return new AsmrNoOperandInsnNode(parent); }
+
+        @Override
+        public AsmrAbstractInsnNode<?> create(AsmrNode<?> parent) {
+            return new AsmrNoOperandInsnNode(parent);
+        }
     }
+
     public enum IntInsnType implements InstructionType<AsmrIntInsnNode> {
         INSTANCE;
-        @Override public AsmrAbstractInsnNode<?> create(AsmrNode<?> parent) { return new AsmrIntInsnNode(parent); }
+
+        @Override
+        public AsmrAbstractInsnNode<?> create(AsmrNode<?> parent) {
+            return new AsmrIntInsnNode(parent);
+        }
     }
+
     public enum VarInsnType implements InstructionType<AsmrVarInsnNode> {
         INSTANCE;
-        @Override public AsmrAbstractInsnNode<?> create(AsmrNode<?> parent) { return new AsmrVarInsnNode(parent); }
+
+        @Override
+        public AsmrAbstractInsnNode<?> create(AsmrNode<?> parent) {
+            return new AsmrVarInsnNode(parent);
+        }
     }
+
     public enum TypeInsnType implements InstructionType<AsmrTypeInsnNode> {
         INSTANCE;
-        @Override public AsmrAbstractInsnNode<?> create(AsmrNode<?> parent) { return new AsmrTypeInsnNode(parent); }
+
+        @Override
+        public AsmrAbstractInsnNode<?> create(AsmrNode<?> parent) {
+            return new AsmrTypeInsnNode(parent);
+        }
     }
+
     public enum FieldInsnType implements InstructionType<AsmrFieldInsnNode> {
         INSTANCE;
-        @Override public AsmrAbstractInsnNode<?> create(AsmrNode<?> parent) { return new AsmrFieldInsnNode(parent); }
+
+        @Override
+        public AsmrAbstractInsnNode<?> create(AsmrNode<?> parent) {
+            return new AsmrFieldInsnNode(parent);
+        }
     }
+
     public enum MethodInsnType implements InstructionType<AsmrMethodInsnNode> {
         INSTANCE;
-        @Override public AsmrAbstractInsnNode<?> create(AsmrNode<?> parent) { return new AsmrMethodInsnNode(parent); }
+
+        @Override
+        public AsmrAbstractInsnNode<?> create(AsmrNode<?> parent) {
+            return new AsmrMethodInsnNode(parent);
+        }
     }
+
     public enum InvokeDynamicInsnType implements InstructionType<AsmrInvokeDynamicInsnNode> {
         INSTANCE;
-        @Override public AsmrAbstractInsnNode<?> create(AsmrNode<?> parent) { return new AsmrInvokeDynamicInsnNode(parent); }
+
+        @Override
+        public AsmrAbstractInsnNode<?> create(AsmrNode<?> parent) {
+            return new AsmrInvokeDynamicInsnNode(parent);
+        }
     }
+
     public enum JumpInsnType implements InstructionType<AsmrJumpInsnNode> {
         INSTANCE;
-        @Override public AsmrAbstractInsnNode<?> create(AsmrNode<?> parent) { return new AsmrJumpInsnNode(parent); }
+
+        @Override
+        public AsmrAbstractInsnNode<?> create(AsmrNode<?> parent) {
+            return new AsmrJumpInsnNode(parent);
+        }
     }
+
     public enum LabelType implements InstructionType<AsmrLabelNode> {
         INSTANCE;
-        @Override public AsmrAbstractInsnNode<?> create(AsmrNode<?> parent) { return new AsmrLabelNode(parent); }
+
+        @Override
+        public AsmrAbstractInsnNode<?> create(AsmrNode<?> parent) {
+            return new AsmrLabelNode(parent);
+        }
     }
+
     public enum LdcInsnType implements InstructionType<AsmrLdcInsnNode> {
         INSTANCE;
-        @Override public AsmrAbstractInsnNode<?> create(AsmrNode<?> parent) { return new AsmrLdcInsnNode(parent); }
+
+        @Override
+        public AsmrAbstractInsnNode<?> create(AsmrNode<?> parent) {
+            return new AsmrLdcInsnNode(parent);
+        }
     }
+
     public enum IincInsnType implements InstructionType<AsmrIincInsnNode> {
         INSTANCE;
-        @Override public AsmrAbstractInsnNode<?> create(AsmrNode<?> parent) { return new AsmrIincInsnNode(parent); }
+
+        @Override
+        public AsmrAbstractInsnNode<?> create(AsmrNode<?> parent) {
+            return new AsmrIincInsnNode(parent);
+        }
     }
+
     public enum SwitchInsnType implements InstructionType<AsmrSwitchInsnNode> {
         INSTANCE;
-        @Override public AsmrAbstractInsnNode<?> create(AsmrNode<?> parent) { return new AsmrSwitchInsnNode(parent); }
+
+        @Override
+        public AsmrAbstractInsnNode<?> create(AsmrNode<?> parent) {
+            return new AsmrSwitchInsnNode(parent);
+        }
     }
+
     public enum MultiANewArrayInsnType implements InstructionType<AsmrMultiANewArrayInsnNode> {
         INSTANCE;
-        @Override public AsmrAbstractInsnNode<?> create(AsmrNode<?> parent) { return new AsmrMultiANewArrayInsnNode(parent); }
+
+        @Override
+        public AsmrAbstractInsnNode<?> create(AsmrNode<?> parent) {
+            return new AsmrMultiANewArrayInsnNode(parent);
+        }
     }
+
     public enum LineNumberType implements InstructionType<AsmrLineNumberNode> {
         INSTANCE;
-        @Override public AsmrAbstractInsnNode<?> create(AsmrNode<?> parent) { return new AsmrLineNumberNode(parent); }
+
+        @Override
+        public AsmrAbstractInsnNode<?> create(AsmrNode<?> parent) {
+            return new AsmrLineNumberNode(parent);
+        }
     }
 }

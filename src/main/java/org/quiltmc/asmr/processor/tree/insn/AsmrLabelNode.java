@@ -17,6 +17,11 @@ public class AsmrLabelNode extends AsmrAbstractInsnNode<AsmrLabelNode> {
 
     private final List<AsmrNode<?>> children = Collections.singletonList(label);
 
+    public AsmrLabelNode() {
+        this(null);
+    }
+
+    @ApiStatus.Internal
     public AsmrLabelNode(AsmrNode<?> parent) {
         super(parent);
     }

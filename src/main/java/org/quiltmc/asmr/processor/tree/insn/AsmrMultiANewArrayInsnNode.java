@@ -19,6 +19,11 @@ public class AsmrMultiANewArrayInsnNode extends AsmrInsnNode<AsmrMultiANewArrayI
     private final List<AsmrNode<?>> children = Arrays.asList(visibleTypeAnnotations(), invisibleTypeAnnotations(),
             opcode(), desc, dims);
 
+    public AsmrMultiANewArrayInsnNode() {
+        this(null);
+    }
+
+    @ApiStatus.Internal
     public AsmrMultiANewArrayInsnNode(AsmrNode<?> parent) {
         super(parent);
     }

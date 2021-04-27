@@ -5,6 +5,11 @@ import org.quiltmc.asmr.processor.tree.AsmrListNode;
 import org.quiltmc.asmr.processor.tree.AsmrNode;
 
 public class AsmrSwitchKeyLabelListNode extends AsmrListNode<AsmrSwitchKeyLabelNode, AsmrSwitchKeyLabelListNode> {
+    public AsmrSwitchKeyLabelListNode() {
+        this(null);
+    }
+
+    @ApiStatus.Internal
     public AsmrSwitchKeyLabelListNode(AsmrNode<?> parent) {
         super(parent);
     }
