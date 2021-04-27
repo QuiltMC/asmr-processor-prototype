@@ -39,7 +39,7 @@ public abstract class AsmrAbstractListNode<E extends AsmrNode<E>, SELF extends A
     @SuppressWarnings("unchecked")
     public void insertCopy(int index, AsmrAbstractListNode<? extends E, ?> other) {
         for (E e : other) {
-            insertCopy(index++, other);
+            insertCopy(index++, e);
         }
     }
 
