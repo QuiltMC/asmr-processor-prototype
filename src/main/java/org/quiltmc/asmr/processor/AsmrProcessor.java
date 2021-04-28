@@ -477,11 +477,19 @@ public class AsmrProcessor implements AutoCloseable {
 
     public <T extends AsmrNode<T>> AsmrSliceCapture<T> copyCapture(AsmrAbstractListNode<T, ?> list, int startInclusive, int endExclusive) {
         checkPhase(AsmrTransformerPhase.READ);
+        if (startInclusive < 0 || endExclusive < startInclusive || endExclusive > list.size()) {
+            throw new IndexOutOfBoundsException(String.format("[%d, %d), size %d", startInclusive, endExclusive, list.size()));
+        }
         return new AsmrCopySliceCapture<>(list, startInclusive, endExclusive);
     }
 
     public <T extends AsmrNode<T>> AsmrSliceCapture<T> refCapture(AsmrAbstractListNode<T, ?> list, int startIndex, int endIndex, boolean startInclusive, boolean endInclusive) {
         checkPhase(AsmrTransformerPhase.READ);
+        int range = endIndex - startIndex;
+        int minRange = !startInclusive && !endInclusive ? 1 : 0;
+        if (startIndex < 0 || endIndex >= list.size() || range < minRange) {
+            throw new IndexOutOfBoundsException(String.format("%s%d, %d%s, size %d", startInclusive ? "[" : "(", startIndex, endIndex, endInclusive ? "]" : ")", list.size()));
+        }
         AsmrReferenceSliceCapture<T, ?> capture = new AsmrReferenceSliceCapture<>(list, startIndex, endIndex, startInclusive, endInclusive);
         referenceCaptures.computeIfAbsent(capture.className(), k -> new ConcurrentLinkedQueue<>()).add(capture);
         return capture;
