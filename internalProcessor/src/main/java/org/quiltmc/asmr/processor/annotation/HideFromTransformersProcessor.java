@@ -15,7 +15,7 @@ import java.io.IOException;
 import java.util.*;
 
 @SupportedSourceVersion(SourceVersion.RELEASE_8)
-public class AnnotationProcessorHack extends AbstractProcessor {
+public class HideFromTransformersProcessor extends AbstractProcessor {
 	// Like java packages, subpackages aren't included in this.
 	List<String> PACKAGES = new ArrayList<>();
 	// Includes sub-classes
@@ -32,7 +32,7 @@ public class AnnotationProcessorHack extends AbstractProcessor {
 			if (annotated.getKind() == ElementKind.PACKAGE) {
 				PACKAGES.add(getCanonicalPackageName(annotated));
 			} else if (annotated.getKind().isClass() || annotated.getKind() == ElementKind.INTERFACE) {
-				CLASSES.add(getCanonicalClassName(annotated));
+				CLASSES.add(getClassName(annotated));
 			} else if (annotated.getKind() == ElementKind.METHOD || annotated.getKind() == ElementKind.CONSTRUCTOR) {
 				METHODS.add(getFullMethodName(annotated));
 			} else if (annotated.getKind() == ElementKind.FIELD) {
@@ -104,12 +104,34 @@ public class AnnotationProcessorHack extends AbstractProcessor {
 	private static String getCanonicalPackageName(Element pkg) {
 		return ((PackageElement) pkg).getQualifiedName().toString().replace('.', '/');
 	}
-	private static String getCanonicalClassName(Element klass) {
-		return ((TypeElement) klass).getQualifiedName().toString().replace('.', '/');
+	private static String getClassName(Element klass) {
+		if (klass.getEnclosingElement() instanceof PackageElement) {
+ 			return ((TypeElement) klass).getQualifiedName().toString().replace('.', '/');
+		}
+
+		String first;
+		List<String> inners = new ArrayList<>();
+		TypeElement parent = (TypeElement) klass;
+		while (true) {
+			if (parent.getEnclosingElement() instanceof PackageElement) {
+				first = parent.getQualifiedName().toString();
+				break;
+			} else {
+				inners.add(parent.getSimpleName().toString());
+				parent = (TypeElement) parent.getEnclosingElement();
+			}
+		}
+
+		Collections.reverse(inners);
+		StringBuilder sb = new StringBuilder(first.replace('.', '/'));
+		for (String inner : inners) {
+			sb.append('$').append(inner.replace('.', '/'));
+		}
+		return sb.toString();
 	}
 
 	private static Desc getFullMethodName(Element method) {
-		return new Desc(getCanonicalClassName(method.getEnclosingElement()) , method.getSimpleName().toString(), getMethodDesc((ExecutableElement) method));
+		return new Desc(getClassName(method.getEnclosingElement()) , method.getSimpleName().toString(), getMethodDesc((ExecutableElement) method));
 	}
 
 	private static String getMethodDesc(ExecutableElement element) {
@@ -143,7 +165,7 @@ public class AnnotationProcessorHack extends AbstractProcessor {
 		if (!(field instanceof VariableElement)) {
 			throw new ClassCastException("Expected variable element");
 		}
-		return new Desc(getCanonicalClassName(field.getEnclosingElement()),  field.getSimpleName().toString(), signature(field.asType().toString()));
+		return new Desc(getClassName(field.getEnclosingElement()),  field.getSimpleName().toString(), signature(field.asType().toString()));
 	}
 
 	/**
@@ -175,7 +197,10 @@ public class AnnotationProcessorHack extends AbstractProcessor {
 	}
 	@Override
 	public Set<String> getSupportedAnnotationTypes() {
-		return Collections.singleton(ApiStatus.Internal.class.getCanonicalName());
+		HashSet<String> a = new HashSet<>();
+		a.add(ApiStatus.Internal.class.getCanonicalName());
+		a.add(HideFromTransformers.class.getCanonicalName());
+		return a;
 	}
 
 	public static final class Desc {

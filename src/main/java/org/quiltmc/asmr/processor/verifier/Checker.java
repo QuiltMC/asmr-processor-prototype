@@ -76,7 +76,7 @@ final class Checker {
 		whitelisted = whitelisted || WHITELIST_CLASS_EXACT.contains(name);
 		Class<?> cl = Class.forName(name.replace('/', '.'));
 		do {
-			if (WHITELIST_CLASS_TREE.contains(cl.getCanonicalName().replace('.', '/'))) {
+			if (WHITELIST_CLASS_TREE.contains(cl.getName().replace('.', '/'))) {
 				whitelisted = true;
 				break;
 			}
@@ -104,7 +104,7 @@ final class Checker {
 
 		Class<?> cl = Class.forName(name.replace('/', '.'));
 		do {
-			if (BLACKLIST_CLASS_TREE.contains(cl.getCanonicalName().replace('.', '/'))) {
+			if (BLACKLIST_CLASS_TREE.contains(cl.getName().replace('.', '/'))) {
 				return true;
 			}
 		} while ((cl = cl.getSuperclass()) != null);
@@ -123,7 +123,7 @@ final class Checker {
 		// 	maybe getDeclaringClass can help? but we still need to do an ugly search if it gets overridden
 		do {
 			for (Method method : cl.getDeclaredMethods()) {
-				if (method.getName().equals(name) && WHITELIST_METHOD_TREE.contains(new VerificationDesc(cl.getCanonicalName().replace('.', '/'), method.getName(), getMethodVerificationDescriptor(method)))) {
+				if (method.getName().equals(name) && WHITELIST_METHOD_TREE.contains(new VerificationDesc(cl.getName().replace('.', '/'), method.getName(), getMethodVerificationDescriptor(method)))) {
 					return true;
 				}
 			}
@@ -143,7 +143,7 @@ final class Checker {
 		// 	maybe getDeclaringClass can help? but we still need to do an ugly search if it gets overridden
 		do {
 			for (Method method : cl.getDeclaredMethods()) {
-				VerificationDesc d = new VerificationDesc(cl.getCanonicalName().replace('.', '/'), method.getName(), getMethodVerificationDescriptor(method));
+				VerificationDesc d = new VerificationDesc(cl.getName().replace('.', '/'), method.getName(), getMethodVerificationDescriptor(method));
 				if (method.getName().equals(name)) {
 					if (BLACKLIST_METHOD_TREE.contains(d)) {
 						return true;
@@ -160,13 +160,13 @@ final class Checker {
 	//		not going to worry about it until it becomes an issue
 	private static boolean fieldWhitelisted(String clazz, String name, String descriptor) throws ClassNotFoundException, NoSuchFieldException {
 		Class<?> cl = Class.forName(clazz.replace('/', '.'));
-		String realOwner = cl.getField(name).getClass().getCanonicalName().replace('.', '/');
+		String realOwner = cl.getField(name).getClass().getName().replace('.', '/');
 		return WHITELIST_FIELDS.contains(new VerificationDesc(realOwner, name, descriptor));
 	}
 
 	private static boolean fieldBlacklisted(String clazz, String name, String descriptor) throws ClassNotFoundException, NoSuchFieldException {
 		Class<?> cl = Class.forName(clazz.replace('/', '.'));
-		String realOwner = cl.getField(name).getDeclaringClass().getCanonicalName().replace('.', '/');
+		String realOwner = cl.getField(name).getDeclaringClass().getName().replace('.', '/');
 		return BLACKLIST_FIELDS.contains(new VerificationDesc(realOwner, name, descriptor));
 	}
 

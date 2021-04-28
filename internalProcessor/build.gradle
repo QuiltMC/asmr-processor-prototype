@@ -30,4 +30,5 @@ repositories {
 dependencies {
     implementation 'org.jetbrains:annotations:20.1.0'
     implementation 'org.quiltmc:quilt-json5:1.0.0-rc.3'
+    implementation project(":annotations")
 }
