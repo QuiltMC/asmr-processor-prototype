@@ -12,6 +12,8 @@ public class AsmrReferenceSliceCapture<T extends AsmrNode<T>, L extends AsmrAbst
     private final int endIndex;
     private final boolean startInclusive;
     private final boolean endInclusive;
+    private final boolean startIsAtStart;
+    private final boolean endIsAtEnd;
     private T resolvedStart;
     private T resolvedEnd;
     private int resolvedStartIndex;
@@ -24,6 +26,8 @@ public class AsmrReferenceSliceCapture<T extends AsmrNode<T>, L extends AsmrAbst
         this.endIndex = endIndex;
         this.startInclusive = startInclusive;
         this.endInclusive = endInclusive;
+        this.startIsAtStart = startIndex == -1 && !startInclusive;
+        this.endIsAtEnd = endIndex == list.size() && !endInclusive;
     }
 
     @Override
@@ -35,11 +39,15 @@ public class AsmrReferenceSliceCapture<T extends AsmrNode<T>, L extends AsmrAbst
     public void computeResolved(AsmrProcessor processor) {
         listCapture.computeResolved(processor);
         L resolvedList = listCapture.resolved(processor);
-        if (endIndex >= resolvedList.typedChildren().size()) {
+        if (!endIsAtEnd && endIndex >= resolvedList.typedChildren().size()) {
             throw new IllegalStateException("Reference slice index out of bounds");
         }
-        resolvedStart = resolvedList.typedChildren().get(startIndex);
-        resolvedEnd = resolvedList.typedChildren().get(endIndex);
+        if (!startIsAtStart && (!endIsAtEnd || startIndex != endIndex)) {
+            resolvedStart = resolvedList.typedChildren().get(startIndex);
+        }
+        if (!endIsAtEnd && (!startIsAtStart || endIndex != startIndex)) {
+            resolvedEnd = resolvedList.typedChildren().get(endIndex);
+        }
         resolvedStartIndex = startIndex;
         resolvedEndIndex = endIndex;
     }
@@ -51,13 +59,25 @@ public class AsmrReferenceSliceCapture<T extends AsmrNode<T>, L extends AsmrAbst
 
     @Override
     public int startNodeInclusive(AsmrProcessor processor) {
-        resolvedStartIndex = find(listCapture.resolved(processor), resolvedStart, resolvedStartIndex);
+        L resolvedList = listCapture.resolved(processor);
+        if (startIsAtStart) {
+            return 0;
+        } else if (endIsAtEnd && startIndex == endIndex) {
+            return resolvedList.size();
+        }
+        resolvedStartIndex = find(resolvedList, resolvedStart, resolvedStartIndex);
         return startInclusive ? resolvedStartIndex : resolvedStartIndex + 1;
     }
 
     @Override
     public int endNodeExclusive(AsmrProcessor processor) {
-        resolvedEndIndex = find(listCapture.resolved(processor), resolvedEnd, resolvedEndIndex);
+        L resolvedList = listCapture.resolved(processor);
+        if (endIsAtEnd) {
+            return resolvedList.size();
+        } else if (startIsAtStart && endIndex == startIndex) {
+            return 0;
+        }
+        resolvedEndIndex = find(resolvedList, resolvedEnd, resolvedEndIndex);
         return endInclusive ? resolvedEndIndex + 1 : resolvedEndIndex;
     }
 
