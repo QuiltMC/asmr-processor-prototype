@@ -92,14 +92,14 @@ public class AsmrReferenceSliceCapture<T extends AsmrNode<T>, L extends AsmrAbst
 
         int distanceToStart = startingIndex;
         int distanceToEnd = list.size() - startingIndex - 1;
-        for (int i = 1; i < distanceToStart || i < distanceToEnd; i++) {
-            if (i < distanceToStart) {
+        for (int i = 1; i <= distanceToStart || i <= distanceToEnd; i++) {
+            if (i <= distanceToStart) {
                 T val2 = list.get(startingIndex - i);
                 if (val2 == val) {
                     return startingIndex - i;
                 }
             }
-            if (i < distanceToEnd) {
+            if (i <= distanceToEnd) {
                 T val2 = list.get(startingIndex + i);
                 if (val2 == val) {
                     return startingIndex + i;

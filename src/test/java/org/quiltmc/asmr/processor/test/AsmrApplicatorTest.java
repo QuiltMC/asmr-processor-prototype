@@ -4,10 +4,8 @@ import org.junit.jupiter.api.Test;
 import org.quiltmc.asmr.processor.AsmrProcessor;
 import org.quiltmc.asmr.processor.AsmrTransformer;
 import org.quiltmc.asmr.processor.capture.AsmrNodeCapture;
-import org.quiltmc.asmr.processor.tree.AsmrValueNode;
-import org.quiltmc.asmr.processor.tree.insn.AsmrAbstractInsnNode;
-import org.quiltmc.asmr.processor.tree.insn.AsmrConstantList;
-import org.quiltmc.asmr.processor.tree.insn.AsmrLdcInsnNode;
+import org.quiltmc.asmr.processor.capture.AsmrSliceCapture;
+import org.quiltmc.asmr.processor.tree.member.AsmrMethodListNode;
 import org.quiltmc.asmr.processor.tree.member.AsmrMethodNode;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -20,6 +18,8 @@ public class AsmrApplicatorTest {
         String targetClassName = TestTargetClass.class.getName().replace('.', '/');
         processor.addClass(targetClassName, platform.getClassBytecode(targetClassName));
         processor.addTransformer(TestTransformer.class);
+        String sourceClassName = TestSourceClass.class.getName().replace('.', '/');
+        processor.addClass(sourceClassName, platform.getClassBytecode(sourceClassName));
         processor.process();
         assertTrue(processor.getModifiedClassNames().contains(targetClassName));
         //noinspection ConstantConditions
@@ -28,9 +28,14 @@ public class AsmrApplicatorTest {
     }
 
     public static class TestTargetClass {
+
+    }
+
+    public static class TestSourceClass {
         public static String getGreeting() {
-            return "Hello World!";
+            return "Hello Earth!";
         }
+        public static void foo() {}
     }
 
     public static class TestTransformer implements AsmrTransformer {
@@ -40,26 +45,20 @@ public class AsmrApplicatorTest {
 
         @Override
         public void read(AsmrProcessor processor) {
-            processor.withClass("org/quiltmc/asmr/processor/test/AsmrApplicatorTest$TestTargetClass", classNode -> {
-                for (AsmrMethodNode method : classNode.methods()) {
-                    if (method.name().value().equals("getGreeting")) {
-                        for (AsmrAbstractInsnNode<?> insn : method.body().instructions()) {
-                            if (insn instanceof AsmrLdcInsnNode) {
-                                AsmrLdcInsnNode ldcNode = (AsmrLdcInsnNode) insn;
-                                if (ldcNode.cstList().getType(0) == AsmrConstantList.StringType.INSTANCE) {
-                                    AsmrValueNode<String> helloNode = ldcNode.cstList().get(0, AsmrConstantList.StringType.INSTANCE);
-                                    if (helloNode.value().equals("Hello World!")) {
-                                        AsmrNodeCapture<AsmrValueNode<String>> helloCapture = processor.refCapture(helloNode);
-                                        processor.addWrite(this, helloCapture, () -> {
-                                            return new AsmrValueNode<String>().init("Hello Earth!");
-                                        });
-                                    }
-                                }
-                            }
+            processor.withClass("org/quiltmc/asmr/processor/test/AsmrApplicatorTest$TestTargetClass", targetClass -> {
+                AsmrSliceCapture<AsmrMethodNode> targetCapture = processor.refCapture(targetClass.methods(), 0, 0, true, false);
+                processor.withClass("org/quiltmc/asmr/processor/test/AsmrApplicatorTest$TestSourceClass", sourceClass -> {
+                    sourceClass.methods().forEach(sourceMethod -> {
+                        if (!sourceMethod.name().value().equals("<init>")) {
+                            AsmrNodeCapture<AsmrMethodNode> sourceCapture = processor.copyCapture(sourceMethod);
+                            processor.addWrite(this, targetCapture, () -> {
+                                AsmrMethodListNode methods = new AsmrMethodListNode();
+                                processor.substitute(methods.add(), sourceCapture);
+                                return methods;
+                            });
                         }
-                    }
-                }
-
+                    });
+                });
             });
         }
     }
