@@ -1,6 +1,7 @@
 package org.quiltmc.asmr.processor.tree.member;
 
 import org.jetbrains.annotations.ApiStatus;
+import org.jetbrains.annotations.Nullable;
 import org.quiltmc.asmr.processor.tree.AsmrListNode;
 import org.quiltmc.asmr.processor.tree.AsmrNode;
 
@@ -23,5 +24,15 @@ public class AsmrMethodListNode extends AsmrListNode<AsmrMethodNode, AsmrMethodL
     @Override
     protected AsmrMethodNode newElement() {
         return new AsmrMethodNode(this);
+    }
+
+    @Nullable
+    public AsmrMethodNode findMethod(String name, String desc) {
+        for (AsmrMethodNode method : this) {
+            if (method.name().value().equals(name) && method.desc().value().equals(desc)) {
+                return method;
+            }
+        }
+        return null;
     }
 }

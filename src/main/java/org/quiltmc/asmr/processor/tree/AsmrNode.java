@@ -16,6 +16,7 @@ public abstract class AsmrNode<SELF extends AsmrNode<SELF>> {
         this.parent = parent;
     }
 
+    @ApiStatus.Internal
     @SuppressWarnings("unchecked")
     protected final SELF getThis() {
         return (SELF) this;
@@ -43,13 +44,19 @@ public abstract class AsmrNode<SELF extends AsmrNode<SELF>> {
         ((AsmrNode<T>) this.children().get(i)).copyFrom((T) other.children().get(i));
     }
 
+    public void replaceWith(SELF other) {
+        ensureWritable();
+        copyFrom(other);
+    }
+
     public SELF copy(AsmrNode<?> newParent) {
         SELF copy = newInstance(newParent);
         copy.copyFrom(getThis());
         return copy;
     }
 
-    void ensureWritable() {
+    @ApiStatus.Internal
+    static void ensureWritable() {
         if (!AsmrTreeModificationManager.isModificationEnabled()) {
             throw new IllegalStateException("Attempting to modify ASMR tree when modification is not enabled");
         }

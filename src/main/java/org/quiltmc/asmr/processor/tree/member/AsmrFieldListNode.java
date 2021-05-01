@@ -1,6 +1,7 @@
 package org.quiltmc.asmr.processor.tree.member;
 
 import org.jetbrains.annotations.ApiStatus;
+import org.jetbrains.annotations.Nullable;
 import org.quiltmc.asmr.processor.tree.AsmrListNode;
 import org.quiltmc.asmr.processor.tree.AsmrNode;
 
@@ -23,5 +24,25 @@ public class AsmrFieldListNode extends AsmrListNode<AsmrFieldNode, AsmrFieldList
     @Override
     protected AsmrFieldNode newElement() {
         return new AsmrFieldNode(this);
+    }
+
+    @Nullable
+    public AsmrFieldNode findField(String name) {
+        for (AsmrFieldNode field : this) {
+            if (field.name().value().equals(name)) {
+                return field;
+            }
+        }
+        return null;
+    }
+
+    @Nullable
+    public AsmrFieldNode findField(String name, String desc) {
+        for (AsmrFieldNode field : this) {
+            if (field.name().value().equals(name) && field.desc().value().equals(desc)) {
+                return field;
+            }
+        }
+        return null;
     }
 }

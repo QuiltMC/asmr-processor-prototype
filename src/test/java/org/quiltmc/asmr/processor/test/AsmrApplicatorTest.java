@@ -2,11 +2,15 @@ package org.quiltmc.asmr.processor.test;
 
 import org.junit.jupiter.api.Test;
 import org.quiltmc.asmr.processor.AsmrProcessor;
+import org.quiltmc.asmr.processor.AsmrStandardPhases;
 import org.quiltmc.asmr.processor.AsmrTransformer;
 import org.quiltmc.asmr.processor.capture.AsmrNodeCapture;
 import org.quiltmc.asmr.processor.capture.AsmrSliceCapture;
 import org.quiltmc.asmr.processor.tree.member.AsmrMethodListNode;
 import org.quiltmc.asmr.processor.tree.member.AsmrMethodNode;
+
+import java.util.Collections;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -40,7 +44,12 @@ public class AsmrApplicatorTest {
 
     public static class TestTransformer implements AsmrTransformer {
         @Override
-        public void apply(AsmrProcessor processor) {
+        public List<String> getPhases() {
+            return Collections.singletonList(AsmrStandardPhases.READ_INITIAL);
+        }
+
+        @Override
+        public void addRoundDependencies(AsmrProcessor processor) {
         }
 
         @Override
