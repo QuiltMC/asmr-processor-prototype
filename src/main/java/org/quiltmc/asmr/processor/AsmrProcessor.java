@@ -21,6 +21,7 @@ import org.quiltmc.asmr.processor.tree.AsmrValueNode;
 import org.quiltmc.asmr.processor.tree.asmvisitor.AsmrClassVisitor;
 import org.quiltmc.asmr.processor.tree.member.AsmrClassNode;
 
+import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -70,7 +71,7 @@ public class AsmrProcessor implements AutoCloseable {
     private final ThreadLocal<String> currentWritingClass = new ThreadLocal<>();
     private final Map<String, List<String>> roundDependents = new HashMap<>();
     private final Map<String, List<String>> writeDependents = new HashMap<>();
-    private ConcurrentHashMap<String, ConcurrentLinkedQueue<Consumer<AsmrClassNode>>> requestedClasses = new ConcurrentHashMap<>();
+    private ConcurrentHashMap<String, ConcurrentLinkedQueue<ClassRequest>> requestedClasses = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, ConcurrentLinkedQueue<AsmrReferenceCapture>> referenceCaptures = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, ConcurrentLinkedQueue<Write>> writes = new ConcurrentHashMap<>();
     private final Set<String> modifiedClasses = new HashSet<>();
@@ -317,25 +318,12 @@ public class AsmrProcessor implements AutoCloseable {
         });
 
         while (!this.requestedClasses.isEmpty()) {
-            ConcurrentHashMap<String, ConcurrentLinkedQueue<Consumer<AsmrClassNode>>> requestedClasses = this.requestedClasses;
+            ConcurrentHashMap<String, ConcurrentLinkedQueue<ClassRequest>> requestedClasses = this.requestedClasses;
             this.requestedClasses = new ConcurrentHashMap<>();
             requestedClasses.entrySet().parallelStream().forEach(entry -> {
                 String className = entry.getKey();
-                ConcurrentLinkedQueue<Consumer<AsmrClassNode>> callbacks = entry.getValue();
-                AsmrClassNode classNode;
-                try {
-                    classNode = allClasses.get(className).get();
-                } catch (IOException e) {
-                    throw new UncheckedIOException("Error reading class, did it get deleted?", e);
-                }
-                try {
-                    AsmrTreeModificationManager.disableModification();
-                    for (Consumer<AsmrClassNode> callback : callbacks) {
-                        callback.accept(classNode);
-                    }
-                } finally {
-                    AsmrTreeModificationManager.enableModification();
-                }
+                List<ClassRequest> requests = new ArrayList<>(entry.getValue());
+                processReadRequestsForClass(className, requests);
             });
         }
 
@@ -346,40 +334,7 @@ public class AsmrProcessor implements AutoCloseable {
         writes.entrySet().parallelStream().forEach(entry -> {
             String className = entry.getKey();
             ConcurrentLinkedQueue<Write> writes = entry.getValue();
-
-            try {
-                ClassProvider classProvider = allClasses.get(className);
-                classProvider.modifiedClass = classProvider.get();
-            } catch (IOException e) {
-                throw new UncheckedIOException("Error reading class, did it get deleted?", e);
-            }
-
-            try {
-                currentWritingClass.set(className);
-
-                ConcurrentLinkedQueue<AsmrReferenceCapture> refCaptures = referenceCaptures.remove(className);
-                if (refCaptures != null) {
-                    for (AsmrReferenceCapture refCapture : refCaptures) {
-                        refCapture.computeResolved(this);
-                    }
-                }
-
-                // TODO: sort writes by processor
-                for (Write write : writes) {
-                    if (write.target instanceof AsmrNodeCapture) {
-                        copyFrom(((AsmrNodeCapture<?>) write.target).resolved(this), write.replacementSupplier.get());
-                    } else {
-                        AsmrSliceCapture<?> sliceCapture = (AsmrSliceCapture<?>) write.target;
-                        AsmrAbstractListNode<?, ?> list = sliceCapture.resolvedList(this);
-                        int startIndex = sliceCapture.startNodeInclusive(this);
-                        int endIndex = sliceCapture.endNodeExclusive(this);
-                        list.remove(startIndex, endIndex);
-                        insertCopy(list, startIndex, (AsmrAbstractListNode<?, ?>) write.replacementSupplier.get());
-                    }
-                }
-            } finally {
-                currentWritingClass.set(null);
-            }
+            processWritesForClass(className, writes);
         });
 
         modifiedClasses.addAll(writes.keySet());
@@ -391,6 +346,88 @@ public class AsmrProcessor implements AutoCloseable {
         referenceCaptures.clear();
 
         currentAction = null;
+    }
+
+    private void processReadRequestsForClass(String className, List<ClassRequest> requests) {
+        boolean careAboutConstantPool = true;
+        for (ClassRequest request : requests) {
+            if (request.constantPoolPredicate == null) {
+                careAboutConstantPool = false;
+                break;
+            }
+        }
+
+        if (careAboutConstantPool) {
+            AsmrConstantPool constantPool;
+            try {
+                constantPool = allClasses.get(className).getConstantPool();
+            } catch (IOException e) {
+                throw new UncheckedIOException("Error reading class, did it get deleted?", e);
+            }
+            if (constantPool != null) {
+                boolean shouldReadClass = false;
+                for (ClassRequest request : requests) {
+                    if (request.constantPoolPredicate != null && request.constantPoolPredicate.test(constantPool)) {
+                        shouldReadClass = true;
+                        break;
+                    }
+                }
+                if (!shouldReadClass) {
+                    return;
+                }
+            }
+        }
+
+        AsmrClassNode classNode;
+        try {
+            classNode = allClasses.get(className).get();
+        } catch (IOException e) {
+            throw new UncheckedIOException("Error reading class, did it get deleted?", e);
+        }
+        try {
+            AsmrTreeModificationManager.disableModification();
+            for (ClassRequest request : requests) {
+                request.callback.accept(classNode);
+            }
+        } finally {
+            AsmrTreeModificationManager.enableModification();
+        }
+    }
+
+    private void processWritesForClass(String className, ConcurrentLinkedQueue<Write> writes) {
+        try {
+            ClassProvider classProvider = allClasses.get(className);
+            classProvider.modifiedClass = classProvider.get();
+        } catch (IOException e) {
+            throw new UncheckedIOException("Error reading class, did it get deleted?", e);
+        }
+
+        try {
+            currentWritingClass.set(className);
+
+            ConcurrentLinkedQueue<AsmrReferenceCapture> refCaptures = referenceCaptures.remove(className);
+            if (refCaptures != null) {
+                for (AsmrReferenceCapture refCapture : refCaptures) {
+                    refCapture.computeResolved(this);
+                }
+            }
+
+            // TODO: sort writes by processor
+            for (Write write : writes) {
+                if (write.target instanceof AsmrNodeCapture) {
+                    copyFrom(((AsmrNodeCapture<?>) write.target).resolved(this), write.replacementSupplier.get());
+                } else {
+                    AsmrSliceCapture<?> sliceCapture = (AsmrSliceCapture<?>) write.target;
+                    AsmrAbstractListNode<?, ?> list = sliceCapture.resolvedList(this);
+                    int startIndex = sliceCapture.startNodeInclusive(this);
+                    int endIndex = sliceCapture.endNodeExclusive(this);
+                    list.remove(startIndex, endIndex);
+                    insertCopy(list, startIndex, (AsmrAbstractListNode<?, ?>) write.replacementSupplier.get());
+                }
+            }
+        } finally {
+            currentWritingClass.set(null);
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -468,16 +505,27 @@ public class AsmrProcessor implements AutoCloseable {
         if (!allClasses.containsKey(name)) {
             throw new IllegalArgumentException("Class not found: " + name);
         }
-        requestedClasses.computeIfAbsent(name, k -> new ConcurrentLinkedQueue<>()).add(callback);
+        requestedClasses.computeIfAbsent(name, k -> new ConcurrentLinkedQueue<>()).add(new ClassRequest(null, callback));
     }
 
-    public void withClasses(Predicate<String> namePredicate, Consumer<AsmrClassNode> callback) {
+    /**
+     * Performs a read action on all classes matching a name predicate and a predicate on the class' constant pool.
+     * Note that the constant pool filter is for optimization purposes only, and the processor is free in some
+     * situations to call the callback on classes which don't match the constant pool even if the constant pool filter
+     * returns false on that class. This is to preserve pureness of the transformation process, and to take into account
+     * that the constant pool can become outdated once the class has been written to.
+     */
+    public void withClasses(Predicate<String> namePredicate, @Nullable Predicate<AsmrConstantPool> constantPoolPredicate, Consumer<AsmrClassNode> callback) {
         checkAction(AsmrTransformerAction.READ);
         for (String className : allClasses.keySet()) {
             if (namePredicate.test(className)) {
-                requestedClasses.computeIfAbsent(className, k -> new ConcurrentLinkedQueue<>()).add(callback);
+                requestedClasses.computeIfAbsent(className, k -> new ConcurrentLinkedQueue<>()).add(new ClassRequest(constantPoolPredicate, callback));
             }
         }
+    }
+
+    public void withClasses(Predicate<String> namePredicate, Consumer<AsmrClassNode> callback) {
+        withClasses(namePredicate, null, callback);
     }
 
     public void withClasses(String prefix, Consumer<AsmrClassNode> callback) {
@@ -685,6 +733,7 @@ public class AsmrProcessor implements AutoCloseable {
     }
 
     private static class ClassProvider {
+        private WeakReference<AsmrConstantPool> cachedConstantPool = null;
         private WeakReference<AsmrClassNode> cachedClass = null;
         public AsmrClassNode modifiedClass = null;
         private final InputStreamSupplier inputStreamSupplier;
@@ -720,11 +769,43 @@ public class AsmrProcessor implements AutoCloseable {
             cachedClass = new WeakReference<>(val);
             return val;
         }
+
+        /** Warning: NOT thread safe! */
+        @Nullable
+        public AsmrConstantPool getConstantPool() throws IOException {
+            if (modifiedClass != null) {
+                // class having been modified means the constant pool may have changed
+                return null;
+            }
+
+            if (cachedConstantPool != null) {
+                AsmrConstantPool constantPool = cachedConstantPool.get();
+                if (constantPool != null) {
+                    return constantPool;
+                }
+            }
+
+            InputStream inputStream = new BufferedInputStream(inputStreamSupplier.get());
+            AsmrConstantPool constantPool = AsmrConstantPool.read(inputStream);
+            cachedConstantPool = new WeakReference<>(constantPool);
+            return constantPool;
+        }
     }
 
     @FunctionalInterface
     private interface InputStreamSupplier {
         InputStream get() throws IOException;
+    }
+
+    private static class ClassRequest {
+        @Nullable
+        public final Predicate<AsmrConstantPool> constantPoolPredicate;
+        public final Consumer<AsmrClassNode> callback;
+
+        public ClassRequest(@Nullable Predicate<AsmrConstantPool> constantPoolPredicate, Consumer<AsmrClassNode> callback) {
+            this.constantPoolPredicate = constantPoolPredicate;
+            this.callback = callback;
+        }
     }
 
     private static class Write {
