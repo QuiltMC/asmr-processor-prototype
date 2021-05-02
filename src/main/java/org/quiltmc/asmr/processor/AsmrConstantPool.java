@@ -144,8 +144,10 @@ public class AsmrConstantPool {
         byte[] bytecode = new byte[totalLength];
         int index = 0;
         for (byte[] entry : entries) {
-            System.arraycopy(entry, 0, bytecode, index, entry.length);
-            index += entry.length;
+            if (entry != null) {
+                System.arraycopy(entry, 0, bytecode, index, entry.length);
+                index += entry.length;
+            }
         }
 
         return read(bytecode);
