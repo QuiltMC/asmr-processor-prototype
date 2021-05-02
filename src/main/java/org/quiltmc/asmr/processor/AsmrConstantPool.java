@@ -102,7 +102,7 @@ public class AsmrConstantPool {
     public static AsmrConstantPool read(InputStream in) throws IOException {
         byte[] headerBuffer = new byte[10];
         readBytes(in, headerBuffer, 0);
-        int majorVersion = readUnsignedShort(headerBuffer, 4);
+        int majorVersion = readUnsignedShort(headerBuffer, 6);
         if (majorVersion > 44 + MAX_JAVA_VERSION) {
             throw new IllegalArgumentException("Class file version " + majorVersion + " not supported");
         }
@@ -154,6 +154,10 @@ public class AsmrConstantPool {
     }
 
     private static void readBytes(InputStream in, byte[] out, int index) throws IOException {
+        if (index == out.length) {
+            // Can happen e.g. with the empty string
+            return;
+        }
         int amtRead = -1;
         while (index < out.length && (amtRead = in.read(out, index, out.length - index)) != -1) {
             index += amtRead;
@@ -168,7 +172,7 @@ public class AsmrConstantPool {
         if (readInt(bytecode, 0) != 0xcafebabe) {
             throw new IllegalArgumentException("Invalid class file magic");
         }
-        int majorVersion = readUnsignedShort(bytecode, 4);
+        int majorVersion = readUnsignedShort(bytecode, 6);
         if (majorVersion > 44 + MAX_JAVA_VERSION) {
             throw new IllegalArgumentException("Class file version " + majorVersion + " not supported");
         }
