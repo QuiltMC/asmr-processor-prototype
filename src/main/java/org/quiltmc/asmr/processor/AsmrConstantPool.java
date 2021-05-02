@@ -287,7 +287,7 @@ public class AsmrConstantPool {
                     int nameAndTypeIndex = secondProperties[refIndex] & 0xffff;
                     constantPool.methodHandles.add(new Handle(
                             readUnsignedByte(bytecode, index),
-                            utfs[firstProperties[refIndex] & 0xffff],
+                            utfs[firstProperties[firstProperties[refIndex] & 0xffff] & 0xffff],
                             utfs[firstProperties[nameAndTypeIndex] & 0xffff],
                             utfs[secondProperties[nameAndTypeIndex] & 0xffff],
                             isInterfaceMethodref.get(refIndex)
