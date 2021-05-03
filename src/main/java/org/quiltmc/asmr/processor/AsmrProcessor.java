@@ -26,7 +26,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
-import java.lang.ref.WeakReference;
+import java.lang.ref.SoftReference;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.DigestInputStream;
@@ -733,8 +733,8 @@ public class AsmrProcessor implements AutoCloseable {
     }
 
     private static class ClassProvider {
-        private WeakReference<AsmrConstantPool> cachedConstantPool = null;
-        private WeakReference<AsmrClassNode> cachedClass = null;
+        private SoftReference<AsmrConstantPool> cachedConstantPool = null;
+        private SoftReference<AsmrClassNode> cachedClass = null;
         public AsmrClassNode modifiedClass = null;
         private final InputStreamSupplier inputStreamSupplier;
 
@@ -766,7 +766,7 @@ public class AsmrProcessor implements AutoCloseable {
                     AsmrTreeModificationManager.disableModification();
                 }
             }
-            cachedClass = new WeakReference<>(val);
+            cachedClass = new SoftReference<>(val);
             return val;
         }
 
@@ -787,7 +787,7 @@ public class AsmrProcessor implements AutoCloseable {
 
             InputStream inputStream = new BufferedInputStream(inputStreamSupplier.get());
             AsmrConstantPool constantPool = AsmrConstantPool.read(inputStream);
-            cachedConstantPool = new WeakReference<>(constantPool);
+            cachedConstantPool = new SoftReference<>(constantPool);
             return constantPool;
         }
     }
