@@ -196,16 +196,16 @@ public class AsmrProcessor implements AutoCloseable {
 
         // compute rounds transformer action
         currentAction = AsmrTransformerAction.COMPUTE_ROUNDS;
-        List<? extends List<? extends AsmrTransformer>> rounds = computeRounds();
+        List<List<AsmrTransformer>> rounds = computeRounds();
         currentAction = null;
 
-        for (List<? extends AsmrTransformer> round : rounds) {
+        for (List<AsmrTransformer> round : rounds) {
             runReadWriteRound(round);
         }
 
     }
 
-    private List<? extends List<? extends AsmrTransformer>> computeRounds() {
+    private List<List<AsmrTransformer>> computeRounds() {
         Map<String, Integer> phaseIndexes = new HashMap<>();
         List<List<AsmrTransformer>> phases = new ArrayList<>(this.phases.size());
         for (int i = 0; i < this.phases.size(); i++) {
@@ -215,7 +215,7 @@ public class AsmrProcessor implements AutoCloseable {
         for (AsmrTransformer transformer : transformers) {
             transformer.addRoundDependencies(this);
 
-            List<? extends String> desiredPhases = transformer.getPhases();
+            List<String> desiredPhases = transformer.getPhases();
             boolean foundPhase = false;
             for (String desiredPhase : desiredPhases) {
                 if (desiredPhase == null) {
@@ -233,14 +233,14 @@ public class AsmrProcessor implements AutoCloseable {
                 throw new IllegalStateException("Could not find desired transformer phase: " + desiredPhases);
             }
         }
-        List<List<? extends AsmrTransformer>> rounds = new ArrayList<>();
+        List<List<AsmrTransformer>> rounds = new ArrayList<>();
         for (List<AsmrTransformer> phase : phases) {
             rounds.addAll(computeRoundsDependencies(phase));
         }
         return rounds;
     }
 
-    private List<? extends List<? extends AsmrTransformer>> computeRoundsDependencies(List<? extends AsmrTransformer> transformers) {
+    private List<List<AsmrTransformer>> computeRoundsDependencies(List<AsmrTransformer> transformers) {
         if (transformers.isEmpty()) {
             return Collections.emptyList();
         }
@@ -305,7 +305,7 @@ public class AsmrProcessor implements AutoCloseable {
         return rounds;
     }
 
-    private void runReadWriteRound(List<? extends AsmrTransformer> transformers) {
+    private void runReadWriteRound(List<AsmrTransformer> transformers) {
         // read transformer action
         currentAction = AsmrTransformerAction.READ;
         transformers.parallelStream().forEach(transformer -> {
@@ -348,7 +348,7 @@ public class AsmrProcessor implements AutoCloseable {
         currentAction = null;
     }
 
-    private void processReadRequestsForClass(String className, List<? extends ClassRequest> requests) {
+    private void processReadRequestsForClass(String className, List<ClassRequest> requests) {
         boolean careAboutConstantPool = true;
         for (ClassRequest request : requests) {
             if (request.constantPoolPredicate == null) {
@@ -394,7 +394,7 @@ public class AsmrProcessor implements AutoCloseable {
         }
     }
 
-    private void processWritesForClass(String className, ConcurrentLinkedQueue<? extends Write> writes) {
+    private void processWritesForClass(String className, ConcurrentLinkedQueue<Write> writes) {
         try {
             ClassProvider classProvider = allClasses.get(className);
             classProvider.modifiedClass = classProvider.get();
