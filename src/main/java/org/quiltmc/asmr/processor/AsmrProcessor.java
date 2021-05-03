@@ -37,6 +37,7 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -213,7 +214,7 @@ public class AsmrProcessor implements AutoCloseable {
             phases.add(new ArrayList<>());
         }
         for (AsmrTransformer transformer : transformers) {
-            transformer.addRoundDependencies(this);
+            transformer.addDependencies(this);
 
             List<String> desiredPhases = transformer.getPhases();
             boolean foundPhase = false;
@@ -235,18 +236,39 @@ public class AsmrProcessor implements AutoCloseable {
         }
         List<List<AsmrTransformer>> rounds = new ArrayList<>();
         for (List<AsmrTransformer> phase : phases) {
-            rounds.addAll(computeRoundsDependencies(phase));
+            rounds.addAll(computeRoundDependencies(phase));
         }
         return rounds;
     }
 
-    private List<List<AsmrTransformer>> computeRoundsDependencies(List<AsmrTransformer> transformers) {
+    private List<List<AsmrTransformer>> computeRoundDependencies(List<AsmrTransformer> transformers) {
+        return splitByDependencyGraphDepth(transformers, roundDependents);
+    }
+
+    private Map<String, Integer> getTransformerIndexes(List<AsmrTransformer> transformers) {
+        List<List<AsmrTransformer>> byGraphDepth = splitByDependencyGraphDepth(transformers, writeDependents);
+
+        Map<String, Integer> indexes = new HashMap<>(transformers.size());
+        for (List<AsmrTransformer> group : byGraphDepth) {
+            // resolve ties by sorting lexicographically by transformer id
+            group.sort(Comparator.comparing(transformer -> transformer.getClass().getName()));
+            // add indexes
+            for (AsmrTransformer transformer : group) {
+                String transformerId = transformer.getClass().getName();
+                indexes.put(transformerId, indexes.size());
+            }
+        }
+
+        return indexes;
+    }
+
+    private static List<List<AsmrTransformer>> splitByDependencyGraphDepth(List<AsmrTransformer> transformers, Map<String, List<String>> dependentsGraph) {
         if (transformers.isEmpty()) {
             return Collections.emptyList();
         }
 
         Map<String, Integer> inDegrees = new HashMap<>();
-        roundDependents.forEach((parent, dependents) -> {
+        dependentsGraph.forEach((parent, dependents) -> {
             for (String dependent : dependents) {
                 inDegrees.merge(dependent, 1, Integer::sum);
             }
@@ -273,7 +295,7 @@ public class AsmrProcessor implements AutoCloseable {
         while (!queue.isEmpty()) {
             String transformerId = queue.remove();
             visited++;
-            List<String> dependents = roundDependents.get(transformerId);
+            List<String> dependents = dependentsGraph.get(transformerId);
             if (dependents != null && !dependents.isEmpty()) {
                 int nextDepth = depths.get(transformerId) + 1;
                 maxDepth = Math.max(nextDepth, maxDepth);
@@ -289,20 +311,20 @@ public class AsmrProcessor implements AutoCloseable {
         }
         if (visited != inDegrees.size()) {
             // TODO: report which transformers have cyclic dependencies
-            throw new IllegalStateException("Cyclic round dependencies");
+            throw new IllegalStateException("Cyclic dependencies");
         }
 
-        List<List<AsmrTransformer>> rounds = new ArrayList<>(maxDepth + 1);
+        List<List<AsmrTransformer>> transformersByDepth = new ArrayList<>(maxDepth + 1);
         for (int i = 0; i <= maxDepth; i++) {
-            rounds.add(new ArrayList<>());
+            transformersByDepth.add(new ArrayList<>());
         }
         for (AsmrTransformer transformer : transformers) {
             String transformerId = transformer.getClass().getName();
-            rounds.get(depths.get(transformerId)).add(transformer);
+            transformersByDepth.get(depths.get(transformerId)).add(transformer);
         }
-        rounds.removeIf(List::isEmpty);
+        transformersByDepth.removeIf(List::isEmpty);
 
-        return rounds;
+        return transformersByDepth;
     }
 
     private void runReadWriteRound(List<AsmrTransformer> transformers) {
@@ -331,10 +353,11 @@ public class AsmrProcessor implements AutoCloseable {
 
         // write transformer action
         currentAction = AsmrTransformerAction.WRITE;
+        Map<String, Integer> transformerIndexes = getTransformerIndexes(transformers);
         writes.entrySet().parallelStream().forEach(entry -> {
             String className = entry.getKey();
             ConcurrentLinkedQueue<Write> writes = entry.getValue();
-            processWritesForClass(className, writes);
+            processWritesForClass(className, writes, transformerIndexes);
         });
 
         modifiedClasses.addAll(writes.keySet());
@@ -394,7 +417,7 @@ public class AsmrProcessor implements AutoCloseable {
         }
     }
 
-    private void processWritesForClass(String className, ConcurrentLinkedQueue<Write> writes) {
+    private void processWritesForClass(String className, ConcurrentLinkedQueue<Write> writes, Map<String, Integer> transformerIndexes) {
         try {
             ClassProvider classProvider = allClasses.get(className);
             classProvider.modifiedClass = classProvider.get();
@@ -412,8 +435,9 @@ public class AsmrProcessor implements AutoCloseable {
                 }
             }
 
-            // TODO: sort writes by processor
-            for (Write write : writes) {
+            List<Write> sortedWrites = new ArrayList<>(writes);
+            sortedWrites.sort(Comparator.comparing(write -> transformerIndexes.get(write.transformer.getClass().getName())));
+            for (Write write : sortedWrites) {
                 if (write.target instanceof AsmrNodeCapture) {
                     copyFrom(((AsmrNodeCapture<?>) write.target).resolved(this), write.replacementSupplier.get());
                 } else {

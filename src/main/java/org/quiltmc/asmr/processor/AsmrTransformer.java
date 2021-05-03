@@ -12,7 +12,7 @@ public interface AsmrTransformer {
      */
     List<String> getPhases();
 
-    void addRoundDependencies(AsmrProcessor processor);
+    void addDependencies(AsmrProcessor processor);
 
     void read(AsmrProcessor processor);
 }
