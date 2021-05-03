@@ -524,7 +524,7 @@ public class AsmrProcessor implements AutoCloseable {
         return allClasses.containsKey(name);
     }
 
-    public void withClass(String name, Consumer<AsmrClassNode> callback) {
+    public void withClass(String name, Consumer<? super AsmrClassNode> callback) {
         checkAction(AsmrTransformerAction.READ);
         if (!allClasses.containsKey(name)) {
             throw new IllegalArgumentException("Class not found: " + name);
@@ -540,7 +540,7 @@ public class AsmrProcessor implements AutoCloseable {
      * that the constant pool can become outdated once the class has been written to.
      */
     @ApiStatus.Experimental // we don't know whether predicating on the constant pool is worth it yet
-    public void withClasses(Predicate<String> namePredicate, @Nullable Predicate<AsmrConstantPool> constantPoolPredicate, Consumer<AsmrClassNode> callback) {
+    public void withClasses(Predicate<? super String> namePredicate, @Nullable Predicate<? super AsmrConstantPool> constantPoolPredicate, Consumer<? super AsmrClassNode> callback) {
         checkAction(AsmrTransformerAction.READ);
         for (String className : allClasses.keySet()) {
             if (namePredicate.test(className)) {
@@ -549,15 +549,15 @@ public class AsmrProcessor implements AutoCloseable {
         }
     }
 
-    public void withClasses(Predicate<String> namePredicate, Consumer<AsmrClassNode> callback) {
+    public void withClasses(Predicate<? super String> namePredicate, Consumer<? super AsmrClassNode> callback) {
         withClasses(namePredicate, null, callback);
     }
 
-    public void withClasses(String prefix, Consumer<AsmrClassNode> callback) {
+    public void withClasses(String prefix, Consumer<? super AsmrClassNode> callback) {
         withClasses(name -> name.startsWith(prefix), callback);
     }
 
-    public void withAllClasses(Consumer<AsmrClassNode> callback) {
+    public void withAllClasses(Consumer<? super AsmrClassNode> callback) {
         withClasses(name -> true, callback);
     }
 
@@ -603,7 +603,6 @@ public class AsmrProcessor implements AutoCloseable {
         return capture;
     }
 
-    @SuppressWarnings("unchecked")
     public <T extends AsmrNode<T>> void addWrite(AsmrTransformer transformer, AsmrNodeCapture<T> target, Supplier<? extends T> replacementSupplier) {
         checkAction(AsmrTransformerAction.READ);
         if (transformer == null) {
@@ -613,12 +612,11 @@ public class AsmrProcessor implements AutoCloseable {
             throw new IllegalArgumentException("Target must be a reference capture, not a copy capture");
         }
         AsmrReferenceCapture refTarget = (AsmrReferenceCapture) target;
-        Write write = new Write(transformer, refTarget, (Supplier<AsmrNode<?>>) replacementSupplier);
+        Write write = new Write(transformer, refTarget, replacementSupplier);
         writes.computeIfAbsent(refTarget.className(), k -> new ConcurrentLinkedQueue<>()).add(write);
     }
 
-    @SuppressWarnings("unchecked")
-    public <T extends AsmrNode<T>, L extends AsmrAbstractListNode<T, L>> void addWrite(AsmrTransformer transformer, AsmrSliceCapture<T> target, Supplier<L> replacementSupplier) {
+    public <T extends AsmrNode<T>, L extends AsmrAbstractListNode<T, L>> void addWrite(AsmrTransformer transformer, AsmrSliceCapture<T> target, Supplier<? extends L> replacementSupplier) {
         checkAction(AsmrTransformerAction.READ);
         if (transformer == null) {
             throw new NullPointerException();
@@ -627,7 +625,7 @@ public class AsmrProcessor implements AutoCloseable {
             throw new IllegalArgumentException("Target must be a reference capture, not a copy capture");
         }
         AsmrReferenceCapture refTarget = (AsmrReferenceCapture) target;
-        Write write = new Write(transformer, refTarget, (Supplier<AsmrNode<?>>) (Supplier<?>) replacementSupplier);
+        Write write = new Write(transformer, refTarget, replacementSupplier);
         writes.computeIfAbsent(refTarget.className(), k -> new ConcurrentLinkedQueue<>()).add(write);
     }
 
@@ -824,10 +822,10 @@ public class AsmrProcessor implements AutoCloseable {
 
     private static class ClassRequest {
         @Nullable
-        public final Predicate<AsmrConstantPool> constantPoolPredicate;
-        public final Consumer<AsmrClassNode> callback;
+        public final Predicate<? super AsmrConstantPool> constantPoolPredicate;
+        public final Consumer<? super AsmrClassNode> callback;
 
-        public ClassRequest(@Nullable Predicate<AsmrConstantPool> constantPoolPredicate, Consumer<AsmrClassNode> callback) {
+        public ClassRequest(@Nullable Predicate<? super AsmrConstantPool> constantPoolPredicate, Consumer<? super AsmrClassNode> callback) {
             this.constantPoolPredicate = constantPoolPredicate;
             this.callback = callback;
         }
@@ -836,9 +834,9 @@ public class AsmrProcessor implements AutoCloseable {
     private static class Write {
         public final AsmrTransformer transformer;
         public final AsmrReferenceCapture target;
-        public final Supplier<AsmrNode<?>> replacementSupplier;
+        public final Supplier<? extends AsmrNode<?>> replacementSupplier;
 
-        public Write(AsmrTransformer transformer, AsmrReferenceCapture target, Supplier<AsmrNode<?>> replacementSupplier) {
+        public Write(AsmrTransformer transformer, AsmrReferenceCapture target, Supplier<? extends AsmrNode<?>> replacementSupplier) {
             this.transformer = transformer;
             this.target = target;
             this.replacementSupplier = replacementSupplier;
