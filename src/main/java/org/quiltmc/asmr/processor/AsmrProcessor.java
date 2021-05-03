@@ -7,6 +7,7 @@ import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.Opcodes;
 import org.quiltmc.asmr.processor.annotation.AllowLambdaCapture;
 import org.quiltmc.asmr.processor.annotation.HideFromTransformers;
+import org.quiltmc.asmr.processor.capture.AsmrCapture;
 import org.quiltmc.asmr.processor.capture.AsmrCopyNodeCaputre;
 import org.quiltmc.asmr.processor.capture.AsmrCopySliceCapture;
 import org.quiltmc.asmr.processor.capture.AsmrNodeCapture;
@@ -69,7 +70,8 @@ public class AsmrProcessor implements AutoCloseable {
     private List<String> phases = Arrays.asList(AsmrStandardPhases.READ_INITIAL, AsmrStandardPhases.READ_FINAL); // TODO: discuss a more comprehensive list
 
     private AsmrTransformerAction currentAction = null;
-    private final ThreadLocal<String> currentWritingClass = new ThreadLocal<>();
+    private final ThreadLocal<String> currentWritingClassName = new ThreadLocal<>();
+    private final ThreadLocal<Write> currentWrite = new ThreadLocal<>();
     private final Map<String, List<String>> roundDependents = new HashMap<>();
     private final Map<String, List<String>> writeDependents = new HashMap<>();
     private ConcurrentHashMap<String, ConcurrentLinkedQueue<ClassRequest>> requestedClasses = new ConcurrentHashMap<>();
@@ -426,7 +428,7 @@ public class AsmrProcessor implements AutoCloseable {
         }
 
         try {
-            currentWritingClass.set(className);
+            currentWritingClassName.set(className);
 
             ConcurrentLinkedQueue<AsmrReferenceCapture> refCaptures = referenceCaptures.remove(className);
             if (refCaptures != null) {
@@ -438,6 +440,7 @@ public class AsmrProcessor implements AutoCloseable {
             List<Write> sortedWrites = new ArrayList<>(writes);
             sortedWrites.sort(Comparator.comparing(write -> transformerIndexes.get(write.transformer.getClass().getName())));
             for (Write write : sortedWrites) {
+                currentWrite.set(write);
                 if (write.target instanceof AsmrNodeCapture) {
                     copyFrom(((AsmrNodeCapture<?>) write.target).resolved(this), write.replacementSupplier.get());
                 } else {
@@ -450,7 +453,8 @@ public class AsmrProcessor implements AutoCloseable {
                 }
             }
         } finally {
-            currentWritingClass.set(null);
+            currentWritingClassName.set(null);
+            currentWrite.set(null);
         }
     }
 
@@ -603,7 +607,20 @@ public class AsmrProcessor implements AutoCloseable {
         return capture;
     }
 
-    public <T extends AsmrNode<T>> void addWrite(AsmrTransformer transformer, AsmrNodeCapture<T> target, Supplier<? extends T> replacementSupplier) {
+    public <T extends AsmrNode<T>> void addWrite(
+            AsmrTransformer transformer,
+            AsmrNodeCapture<T> target,
+            Supplier<? extends T> replacementSupplier
+    ) {
+        addWrite(transformer, target, replacementSupplier, Collections.emptySet());
+    }
+
+    public <T extends AsmrNode<T>> void addWrite(
+            AsmrTransformer transformer,
+            AsmrNodeCapture<T> target,
+            Supplier<? extends T> replacementSupplier,
+            Set<AsmrCapture> refCaptureInputs
+    ) {
         checkAction(AsmrTransformerAction.READ);
         if (transformer == null) {
             throw new NullPointerException();
@@ -612,11 +629,24 @@ public class AsmrProcessor implements AutoCloseable {
             throw new IllegalArgumentException("Target must be a reference capture, not a copy capture");
         }
         AsmrReferenceCapture refTarget = (AsmrReferenceCapture) target;
-        Write write = new Write(transformer, refTarget, replacementSupplier);
+        Write write = new Write(transformer, refTarget, replacementSupplier, refCaptureInputs);
         writes.computeIfAbsent(refTarget.className(), k -> new ConcurrentLinkedQueue<>()).add(write);
     }
 
-    public <T extends AsmrNode<T>, L extends AsmrAbstractListNode<T, L>> void addWrite(AsmrTransformer transformer, AsmrSliceCapture<T> target, Supplier<? extends L> replacementSupplier) {
+    public <T extends AsmrNode<T>, L extends AsmrAbstractListNode<T, L>> void addWrite(
+            AsmrTransformer transformer,
+            AsmrSliceCapture<T> target,
+            Supplier<? extends L> replacementSupplier
+    ) {
+        addWrite(transformer, target, replacementSupplier, Collections.emptySet());
+    }
+
+    public <T extends AsmrNode<T>, L extends AsmrAbstractListNode<T, L>> void addWrite(
+            AsmrTransformer transformer,
+            AsmrSliceCapture<T> target,
+            Supplier<? extends L> replacementSupplier,
+            Set<AsmrCapture> refCaptureInputs
+    ) {
         checkAction(AsmrTransformerAction.READ);
         if (transformer == null) {
             throw new NullPointerException();
@@ -625,18 +655,30 @@ public class AsmrProcessor implements AutoCloseable {
             throw new IllegalArgumentException("Target must be a reference capture, not a copy capture");
         }
         AsmrReferenceCapture refTarget = (AsmrReferenceCapture) target;
-        Write write = new Write(transformer, refTarget, replacementSupplier);
+        Write write = new Write(transformer, refTarget, replacementSupplier, refCaptureInputs);
         writes.computeIfAbsent(refTarget.className(), k -> new ConcurrentLinkedQueue<>()).add(write);
     }
 
     public <T extends AsmrNode<T>> void substitute(T target, AsmrNodeCapture<T> source) {
         checkAction(AsmrTransformerAction.WRITE);
+        if (source instanceof AsmrReferenceCapture) {
+            if (!currentWrite.get().refCaptureInputs.contains(source)) {
+                throw new IllegalArgumentException("Cannot substitute a ref capture which has not been declared as an input to the current write");
+            }
+        }
+
         target.copyFrom(source.resolved(this));
     }
 
     @SuppressWarnings("unchecked")
     public <E extends AsmrNode<E>, L extends AsmrAbstractListNode<E, L>> void substitute(L target, int index, AsmrSliceCapture<E> source) {
         checkAction(AsmrTransformerAction.WRITE);
+        if (source instanceof AsmrReferenceCapture) {
+            if (!currentWrite.get().refCaptureInputs.contains(source)) {
+                throw new IllegalArgumentException("Cannot substitute a ref capture which has not been declared as an input to the current write");
+            }
+        }
+
         L resolvedList = (L) source.resolvedList(this);
         int startIndex = source.startNodeInclusive(this);
         int endIndex = source.endNodeExclusive(this);
@@ -750,8 +792,8 @@ public class AsmrProcessor implements AutoCloseable {
 
     @ApiStatus.Internal
     public void checkWritingClass(String className) {
-        if (!className.equals(currentWritingClass.get())) {
-            throw new IllegalStateException("This operation is only allowed while writing class '" + className + "' but was writing '" + currentWritingClass.get() + "'");
+        if (!className.equals(currentWritingClassName.get())) {
+            throw new IllegalStateException("This operation is only allowed while writing class '" + className + "' but was writing '" + currentWritingClassName.get() + "'");
         }
     }
 
@@ -834,12 +876,14 @@ public class AsmrProcessor implements AutoCloseable {
     private static class Write {
         public final AsmrTransformer transformer;
         public final AsmrReferenceCapture target;
+        public final Set<AsmrCapture> refCaptureInputs;
         public final Supplier<? extends AsmrNode<?>> replacementSupplier;
 
-        public Write(AsmrTransformer transformer, AsmrReferenceCapture target, Supplier<? extends AsmrNode<?>> replacementSupplier) {
+        public Write(AsmrTransformer transformer, AsmrReferenceCapture target, Supplier<? extends AsmrNode<?>> replacementSupplier, Set<AsmrCapture> refCaptureInputs) {
             this.transformer = transformer;
             this.target = target;
             this.replacementSupplier = replacementSupplier;
+            this.refCaptureInputs = refCaptureInputs;
         }
     }
 

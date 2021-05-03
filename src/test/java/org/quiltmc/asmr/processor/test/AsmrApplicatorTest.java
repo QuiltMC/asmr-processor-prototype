@@ -52,7 +52,7 @@ public class AsmrApplicatorTest {
         }
 
         @Override
-        public void addRoundDependencies(AsmrProcessor processor) {
+        public void addDependencies(AsmrProcessor processor) {
         }
 
         @Override

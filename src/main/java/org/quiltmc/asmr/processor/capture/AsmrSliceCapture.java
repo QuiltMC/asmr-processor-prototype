@@ -8,7 +8,7 @@ import org.quiltmc.asmr.processor.tree.AsmrNode;
 
 @AllowLambdaCapture
 @ApiStatus.NonExtendable
-public interface AsmrSliceCapture<T extends AsmrNode<T>> {
+public interface AsmrSliceCapture<T extends AsmrNode<T>> extends AsmrCapture {
     @ApiStatus.Internal
     AsmrAbstractListNode<T, ?> resolvedList(AsmrProcessor processor);
 
