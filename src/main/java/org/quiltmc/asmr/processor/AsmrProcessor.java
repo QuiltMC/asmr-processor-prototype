@@ -515,6 +515,7 @@ public class AsmrProcessor implements AutoCloseable {
      * returns false on that class. This is to preserve pureness of the transformation process, and to take into account
      * that the constant pool can become outdated once the class has been written to.
      */
+    @ApiStatus.Experimental // we don't know whether predicating on the constant pool is worth it yet
     public void withClasses(Predicate<String> namePredicate, @Nullable Predicate<AsmrConstantPool> constantPoolPredicate, Consumer<AsmrClassNode> callback) {
         checkAction(AsmrTransformerAction.READ);
         for (String className : allClasses.keySet()) {

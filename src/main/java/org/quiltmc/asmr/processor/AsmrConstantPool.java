@@ -1,5 +1,6 @@
 package org.quiltmc.asmr.processor;
 
+import org.jetbrains.annotations.ApiStatus;
 import org.quiltmc.asmr.processor.annotation.HideFromTransformers;
 import org.quiltmc.asmr.processor.util.Pair;
 import org.quiltmc.asmr.processor.util.Triple;
@@ -11,6 +12,7 @@ import java.util.BitSet;
 import java.util.HashSet;
 import java.util.Set;
 
+@ApiStatus.Experimental // we don't know whether predicating on the constant pool is worth it yet
 public class AsmrConstantPool {
     private static final int MAX_JAVA_VERSION = 16;
     private static final int[] TAG_SKIPS = {-1, -1, -1, 4, 4, 8, 8, 2, 2, 4, 4, 4, 4, -1, -1, 3, 2, 4, 4, 2, 2};
