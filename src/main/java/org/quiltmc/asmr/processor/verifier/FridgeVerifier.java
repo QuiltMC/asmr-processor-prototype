@@ -45,32 +45,37 @@ public final class FridgeVerifier extends ClassVisitor {
 	public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
 		// We force the package to start with "transformer" so that
 		if (!name.startsWith("transformer/")) {
-			throw new VerificationException("Transformer package name must start with transformer");
+			throw new VerificationException(className, "Transformer package name must start with transformer");
 		}
 		className = name;
 		// We restrict the valid superclasses to avoid the transformer somehow gaining access to protected members
 		if (!superName.equals("java/lang/Object")) {
-			throw new VerificationException("Transformer must extend Object");
+			throw new VerificationException(className, "Transformer must extend Object");
 		}
 		if (interfaces.length != 1 || interfaces[0].equals("org.quiltmc.asmr.processor.AsmrTransformer")) {
-			throw new VerificationException("Transformer cannot implement any interfaces");
+			throw new VerificationException(className, "Transformer cannot implement any interfaces");
 		}
 	}
 
 	@Override
 	public MethodVisitor visitMethod(int access, String name, String descriptor, String signature, String[] exceptions) {
-		if ((access & Opcodes.ACC_NATIVE) != 0 || (access & Opcodes.ACC_SYNCHRONIZED) != 0) {
-			throw new VerificationException(""); // TODO: context
+		if ((access & Opcodes.ACC_NATIVE) != 0) {
+			throw new VerificationException(className, "Transformer cannot have native methods");
+		} else if ((access & Opcodes.ACC_SYNCHRONIZED) != 0) {
+			throw new VerificationException(className, "Transformer cannot have synchronized methods");
+		} else {
+			return new MethodVerifier(name + descriptor);
 		}
-		return new MethodVerifier();
 	}
 
 	public static void init() {
 	}
 
 	class MethodVerifier extends MethodVisitor {
-		public MethodVerifier() {
+		String methodName;
+		public MethodVerifier(String methodName) {
 			super(AsmrProcessor.ASM_VERSION);
+			this.methodName = methodName;
 		}
 
 		@Override
@@ -82,10 +87,10 @@ public final class FridgeVerifier extends ClassVisitor {
 					super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
 					return;
 				} else {
-					throw new VerificationException("Transformer is not allowed to reference other transformers!");
+					throw new VerificationException(className, methodName, "A transformer is not allowed to reference other transformers!");
 				}
 			} else if (!Checker.allowMethod(owner, name, descriptor)) {
-				throw new VerificationException(""); // TOOD: context?
+				throw new VerificationException(className, "Method " + owner + "::" + name + descriptor + " is not whitelisted!");
 			}
 			super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
 		}
@@ -96,12 +101,12 @@ public final class FridgeVerifier extends ClassVisitor {
 			if (owner.startsWith("transformer/")) {
 				if (owner.equals(className)) {
 					// Your fields are supposed to be final!
-					throw new VerificationException(""); // TODO context
+					throw new VerificationException(className, methodName, "All references to a transformer's own fields must be inlined");
 				} else {
-					throw new VerificationException("Transformer is not allowed to reference other transformers!");
+					throw new VerificationException(className, methodName, "A transformer is not allowed to reference other transformers!");
 				}
 			} else if (!Checker.allowField(owner, name, descriptor)) {
-				throw new VerificationException(""); // TOOD: context?
+				throw new VerificationException(className, "Field " + owner + "::" + name + descriptor + " is not whitelisted!");
 			}
 			super.visitFieldInsn(opcode, owner, name, descriptor);
 		}
@@ -112,11 +117,11 @@ public final class FridgeVerifier extends ClassVisitor {
 				super.visitInvokeDynamicInsn(name, descriptor, bootstrapMethodHandle, bootstrapMethodArguments);
 			} else if (bootstrapMethodHandle.getOwner().equals("java/lang/invoke/LambdaMetafactory")) {
 				if (!Checker.allowClass(name)) {
-					throw new VerificationException("");
+					throw new VerificationException(className, methodName, "");
 				}
 				// TODO: verify capturing
 			} else {
-				throw new VerificationException(""); // TODO: context 
+				throw new VerificationException(className, methodName, "");
 			}
 		}
 
@@ -125,7 +130,7 @@ public final class FridgeVerifier extends ClassVisitor {
 			if (value instanceof Type) {
 				Type type = (Type) value;
 				if (!Checker.allowClass(type.getClassName().replace('.', '/'))) {
-					throw new VerificationException(""); // TODO: context?
+					throw new VerificationException(className, methodName, "Class constant referenced in LDC is not whitelisted: " + type.getClassName());
 				}
 			}
 
@@ -135,7 +140,7 @@ public final class FridgeVerifier extends ClassVisitor {
 		@Override
 		public void visitInsn(int opcode) {
 			if (opcode == Opcodes.MONITORENTER || opcode == Opcodes.MONITOREXIT) {
-				throw new VerificationException(""); // TODO: context
+				throw new VerificationException(className, methodName, "Synchronization is not allowed");
 			}
 			super.visitInsn(opcode);
 		}
@@ -153,8 +158,12 @@ public final class FridgeVerifier extends ClassVisitor {
 	}
 
 	private static final class VerificationException extends RuntimeException {
-		public VerificationException(String message) {
-			super(message);
+		public VerificationException(String clazzName, String methodName, String message) {
+			super(clazzName + "::" + methodName + " is not a valid transformer: "+ message);
+		}
+
+		public VerificationException(String clazzName, String message) {
+			super(clazzName + " is not a valid transformer: " + message);
 		}
 	}
 }
