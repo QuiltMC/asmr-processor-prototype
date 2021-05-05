@@ -54,7 +54,7 @@ public class AsmrClassTestUtil {
 		return classNode;
 	}
 
-	static Class<?> defineClass(AsmrProcessor processor, AsmrClassNode classNode) {
+	public static Class<?> defineClass(AsmrProcessor processor, AsmrClassNode classNode) {
 		String className = classNode.name().value().replace('/', '.');
 
 		ClassWriter writer = new AsmrClassWriter(processor);

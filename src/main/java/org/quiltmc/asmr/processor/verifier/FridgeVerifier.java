@@ -3,6 +3,7 @@ package org.quiltmc.asmr.processor.verifier;
 import org.objectweb.asm.*;
 import org.quiltmc.asmr.processor.AsmrPlatform;
 import org.quiltmc.asmr.processor.AsmrProcessor;
+import org.quiltmc.asmr.processor.AsmrTransformer;
 
 import java.util.Arrays;
 
@@ -51,7 +52,7 @@ public final class FridgeVerifier extends ClassVisitor {
 		if (!superName.equals("java/lang/Object")) {
 			throw new VerificationException("Transformer must extend Object");
 		}
-		if (interfaces.length > 0) {
+		if (interfaces.length != 1 || interfaces[0].equals("org.quiltmc.asmr.processor.AsmrTransformer")) {
 			throw new VerificationException("Transformer cannot implement any interfaces");
 		}
 	}

@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.UncheckedIOException;
 import java.util.HashSet;
+import java.util.Locale;
 import java.util.Set;
 
 public class VerifierAnnotationProcessor extends AbstractProcessor {
@@ -16,31 +17,33 @@ public class VerifierAnnotationProcessor extends AbstractProcessor {
 	public boolean process(Set<? extends TypeElement> set, RoundEnvironment roundEnvironment) {
 		if (writer == null) {
 			try {
-				writer = new PrintWriter(processingEnv.getFiler().createSourceFile("transformer.test.org.quiltmc.asmr.processor.verifier.VerifierTests").openWriter());
+				writer = new PrintWriter(processingEnv.getFiler().createSourceFile("org.quiltmc.asmr.processor.test.VerifierTests").openWriter());
 			} catch (IOException e) {
 				throw new UncheckedIOException(e);
 			}
 
-			writer.write("package transformer.test.org.quiltmc.asmr.processor.verifier;class VerifierTests {");
+			writer.write("package org.quiltmc.asmr.processor.test;class VerifierTests {");
 		}
 		for (Element annotated : roundEnvironment.getElementsAnnotatedWith(VerifierTests.Fails.class)) {
 			TypeElement element = (TypeElement) annotated;
-			writer.write("@org.junit.jupiter.api.Test void fails");
-			writer.write(annotated.getSimpleName().toString());
+			writer.write("@org.junit.jupiter.api.Test void ");
+			writer.write(annotated.getSimpleName().toString().substring(0, 1).toLowerCase(Locale.US));
+			writer.write(annotated.getSimpleName().toString().substring(1));
 			writer.write("() {" +
 					" org.junit.jupiter.api.Assertions.assertFalse(org.quiltmc.asmr.processor.verifier.FridgeVerifier" +
-					".verify(null, org.quiltmc.asmr.processor.test.AsmrClassTestUtil.findClassBytes(");
+					".verify(new org.quiltmc.asmr.processor.test.AsmrTestPlatform(), org.quiltmc.asmr.processor.test.AsmrClassTestUtil.findClassBytes(");
 			writer.write(element.getQualifiedName().toString());
 			writer.write(".class)));}");
 		}
 
 		for (Element annotated : roundEnvironment.getElementsAnnotatedWith(VerifierTests.Passes.class)) {
 			TypeElement element = (TypeElement) annotated;
-			writer.write("@org.junit.jupiter.api.Test void passes");
-			writer.write(annotated.getSimpleName().toString());
+			writer.write("@org.junit.jupiter.api.Test void ");
+			writer.write(annotated.getSimpleName().toString().substring(0, 1).toLowerCase(Locale.US));
+			writer.write(annotated.getSimpleName().toString().substring(1));
 			writer.write("() {" +
 					" org.junit.jupiter.api.Assertions.assertTrue(org.quiltmc.asmr.processor.verifier.FridgeVerifier" +
-					".verify(null, org.quiltmc.asmr.processor.test.AsmrClassTestUtil.findClassBytes(");
+					".verify(new org.quiltmc.asmr.processor.test.AsmrTestPlatform(), org.quiltmc.asmr.processor.test.AsmrClassTestUtil.findClassBytes(");
 			writer.write(element.getQualifiedName().toString());
 			writer.write(".class)));}");
 		}

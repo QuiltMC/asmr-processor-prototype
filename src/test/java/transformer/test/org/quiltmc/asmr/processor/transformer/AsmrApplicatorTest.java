@@ -1,4 +1,4 @@
-package org.quiltmc.asmr.processor.test;
+package transformer.test.org.quiltmc.asmr.processor.transformer;
 
 import org.junit.jupiter.api.Test;
 import org.quiltmc.asmr.processor.AsmrProcessor;
@@ -6,11 +6,15 @@ import org.quiltmc.asmr.processor.AsmrStandardPhases;
 import org.quiltmc.asmr.processor.AsmrTransformer;
 import org.quiltmc.asmr.processor.capture.AsmrNodeCapture;
 import org.quiltmc.asmr.processor.capture.AsmrSliceCapture;
+import org.quiltmc.asmr.processor.test.AsmrClassTestUtil;
+import org.quiltmc.asmr.processor.test.TransformerTestProctor;
 import org.quiltmc.asmr.processor.tree.insn.AsmrAbstractInsnNode;
 import org.quiltmc.asmr.processor.tree.insn.AsmrConstantList;
 import org.quiltmc.asmr.processor.tree.insn.AsmrLdcInsnNode;
+import org.quiltmc.asmr.processor.tree.member.AsmrClassNode;
 import org.quiltmc.asmr.processor.tree.member.AsmrMethodListNode;
 import org.quiltmc.asmr.processor.tree.member.AsmrMethodNode;
+import org.quiltmc.asmr.processor.util.Pair;
 
 import java.util.Collections;
 import java.util.List;
@@ -20,17 +24,8 @@ import static org.junit.jupiter.api.Assertions.*;
 public class AsmrApplicatorTest {
     @Test
     public void runTest() throws ReflectiveOperationException {
-        AsmrTestPlatform platform = new AsmrTestPlatform();
-        AsmrProcessor processor = new AsmrProcessor(platform);
-        String targetClassName = TestTargetClass.class.getName().replace('.', '/');
-        processor.addClass(targetClassName, platform.getClassBytecode(targetClassName));
-        processor.addTransformer(TestTransformer.class);
-        String sourceClassName = TestSourceClass.class.getName().replace('.', '/');
-        processor.addClass(sourceClassName, platform.getClassBytecode(sourceClassName));
-        processor.process();
-        assertTrue(processor.getModifiedClassNames().contains(targetClassName));
-        //noinspection ConstantConditions
-        Class<?> transformedTestClass = AsmrClassTestUtil.defineClass(processor, processor.findClassImmediately(targetClassName));
+        Pair<AsmrProcessor, AsmrClassNode> result = TransformerTestProctor.test(TestTransformer.class, TestTargetClass.class, TestSourceClass.class);
+        Class<?> transformedTestClass = AsmrClassTestUtil.defineClass(result.k, result.v);
         assertEquals("Hello Earth!", transformedTestClass.getMethod("getGreeting").invoke(null));
     }
 
@@ -53,6 +48,7 @@ public class AsmrApplicatorTest {
 
         @Override
         public void addDependencies(AsmrProcessor processor) {
+
         }
 
         @Override
@@ -61,7 +57,7 @@ public class AsmrApplicatorTest {
              * Copies all methods except "<init>" from all classes that contain a method "String getGreeting()" which load the string
              * constant "Hello Earth!", into the target class "TestTargetClass"
              */
-            processor.withClass("org/quiltmc/asmr/processor/test/AsmrApplicatorTest$TestTargetClass", targetClass -> {
+            processor.withClass("transformer/test/org/quiltmc/asmr/processor/transformer/AsmrApplicatorTest$TestTargetClass", targetClass -> {
                 AsmrSliceCapture<AsmrMethodNode> targetCapture = processor.refCapture(targetClass.methods(), 0, 0, true, false);
                 processor.withClasses(name -> true, cp -> cp.hasString("Hello Earth!") && cp.hasUtf("getGreeting"), sourceClass -> {
                     AsmrMethodNode getGreeting = sourceClass.methods().findMethod("getGreeting", "()Ljava/lang/String;");
