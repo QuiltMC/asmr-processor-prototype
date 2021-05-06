@@ -1,7 +1,6 @@
 package org.quiltmc.asmr.processor.test;
 
 import org.junit.jupiter.api.Assertions;
-import org.objectweb.asm.ClassWriter;
 import org.quiltmc.asmr.processor.AsmrClassWriter;
 import org.quiltmc.asmr.processor.AsmrProcessor;
 import org.quiltmc.asmr.processor.AsmrTransformer;
@@ -12,7 +11,8 @@ import org.quiltmc.asmr.processor.verifier.FridgeVerifier;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class TransformerTestProctor {
-	public static Pair<AsmrProcessor, AsmrClassNode> test(Class<? extends AsmrTransformer> transformer, Class<?> target, Class<?>... source) {
+	@SafeVarargs
+	public static Pair<AsmrProcessor, AsmrClassNode> test(Class<?> target, Class<?>[] source, Class<? extends AsmrTransformer>... transformers) {
 		try {
 			AsmrTestPlatform platform = new AsmrTestPlatform();
 			String targetClassName = target.getName().replace('.', '/');
@@ -25,7 +25,9 @@ public class TransformerTestProctor {
 				FridgeVerifier.verify(platform, bytecode);
 
 				processor.addClass(targetClassName, platform.getClassBytecode(targetClassName));
-				processor.addTransformer(transformer);
+				for (Class<? extends AsmrTransformer> transformer : transformers) {
+					processor.addTransformer(transformer);
+				}
 
 				for (Class<?> c : source) {
 					String sourceClassName = c.getName().replace('.', '/');
@@ -47,7 +49,9 @@ public class TransformerTestProctor {
 			{
 				processor = new AsmrProcessor(platform);
 				processor.addClass(targetClassName, platform.getClassBytecode(targetClassName));
-				processor.addTransformer(transformer);
+				for (Class<? extends AsmrTransformer> transformer : transformers) {
+					processor.addTransformer(transformer);
+				}
 
 				for (Class<?> c : source) {
 					String sourceClassName = c.getName().replace('.', '/');
