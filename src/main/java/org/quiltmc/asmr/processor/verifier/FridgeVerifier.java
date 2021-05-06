@@ -116,10 +116,17 @@ public final class FridgeVerifier extends ClassVisitor {
 			if (bootstrapMethodHandle.getOwner().equals("java/lang/invoke/StringConcatFactory")) {
 				super.visitInvokeDynamicInsn(name, descriptor, bootstrapMethodHandle, bootstrapMethodArguments);
 			} else if (bootstrapMethodHandle.getOwner().equals("java/lang/invoke/LambdaMetafactory")) {
-				if (!Checker.allowClass(name)) {
+				// TODO: check the captures
+				Handle target = ((Handle) bootstrapMethodArguments[1]);
+				if (target.getOwner().equals(className)) {
+					super.visitInvokeDynamicInsn(name, descriptor, bootstrapMethodHandle, bootstrapMethodArguments);
+					return;
+				}
+
+				if (!Checker.allowClass(target.getOwner())) {
 					throw new VerificationException(className, methodName, "");
 				}
-				// TODO: verify capturing
+				// TODO: check the method being called
 			} else {
 				throw new VerificationException(className, methodName, "");
 			}
