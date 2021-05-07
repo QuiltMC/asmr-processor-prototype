@@ -649,6 +649,8 @@ public class AsmrProcessor implements AutoCloseable {
                 // if a or b isn't a slice there is no other possible case then a complete containment
                 if (!(refA.capture instanceof AsmrReferenceSliceCapture) || !(refB.capture instanceof AsmrReferenceSliceCapture)) {
                     bInsideA = true;
+                } else if (pathPrefixA.length != pathPrefixB.length) {
+                    bInsideA = true;
                 } else {
                     int startA = ((AsmrReferenceSliceCapture<?, ?>) refA.capture).startVirtualIndex();
                     int endA = ((AsmrReferenceSliceCapture<?, ?>) refA.capture).endVirtualIndex();
@@ -683,6 +685,7 @@ public class AsmrProcessor implements AutoCloseable {
         }
 
         // promote soft dependencies to hard dependencies where they don't conflict the other way
+        // TODO: this doesn't detect transitive hard dependencies
         softDependents.forEach((write, dependents) -> {
             for (Write dependent : dependents) {
                 Set<Write> inverseHardDependents = hardDependents.get(dependent);
