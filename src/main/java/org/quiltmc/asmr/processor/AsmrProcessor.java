@@ -444,7 +444,7 @@ public class AsmrProcessor implements AutoCloseable {
 
             List<Write> sortedWrites = sortWritesAndDetectConflicts(new ArrayList<>(writes));
 
-            Set<AsmrReferenceCapture> allRefCapturesSet = new HashSet<>();
+            Set<AsmrReferenceCapture> allRefCapturesSet = new LinkedHashSet<>();
             for (Write write : sortedWrites) {
                 allRefCapturesSet.add(write.target);
                 for (AsmrCapture refCaptureInput : write.refCaptureInputs) {
