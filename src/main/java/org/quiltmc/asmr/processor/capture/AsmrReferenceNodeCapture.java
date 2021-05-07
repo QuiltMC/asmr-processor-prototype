@@ -48,6 +48,27 @@ public class AsmrReferenceNodeCapture<T extends AsmrNode<T>> implements AsmrNode
         return path;
     }
 
+
+    @Override
+    public int startVirtualIndex() {
+        return Integer.MIN_VALUE;
+    }
+
+    @Override
+    public int endVirtualIndex() {
+        return Integer.MAX_VALUE;
+    }
+
+    @Override
+    public int startIndexInclusive() {
+        return Integer.MIN_VALUE;
+    }
+
+    @Override
+    public int endIndexExclusive() {
+        return Integer.MAX_VALUE;
+    }
+
     @Override
     public T resolved(AsmrProcessor processor) {
         processor.checkWritingClass(className);

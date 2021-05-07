@@ -529,81 +529,65 @@ public class AsmrProcessor implements AutoCloseable {
             Ref refA = refs.get(indexA);
             int[] pathPrefixA = refA.capture.pathPrefix();
 
-            bLoop:
             for (int indexB = indexA + 1; indexB < refs.size(); indexB++) {
                 Ref refB = refs.get(indexB);
                 int[] pathPrefixB = refB.capture.pathPrefix();
 
                 // check that the b prefix starts with the a prefix
-                if (pathPrefixB.length < pathPrefixA.length) {
-                    break bLoop;
+                int bLength = pathPrefixB.length;
+                int aLength = pathPrefixA.length;
+
+                if (bLength < aLength) {
+                    break;
                 }
-                for (int i = pathPrefixA.length - 1; i >= 0; i--) {
+
+                for (int i = 0; i < aLength; i++) {
                     if (pathPrefixB[i] != pathPrefixA[i]) {
-                        break bLoop;
+                        break;
                     }
                 }
 
-                // check b isn't past the end of a if a is a capture
-                if (refA.capture instanceof AsmrReferenceSliceCapture) {
-                    AsmrReferenceSliceCapture<?, ?> sliceA = (AsmrReferenceSliceCapture<?, ?>) refA.capture;
-                    if (pathPrefixB.length > pathPrefixA.length) {
-                        if (pathPrefixB[pathPrefixA.length] >= sliceA.endIndexExclusive()) {
-                            break bLoop;
-                        }
-                    } else { // if (pathPrefixA.length == pathPrefixB.length)
-                        if (refB.capture instanceof AsmrReferenceSliceCapture) {
-                            AsmrReferenceSliceCapture<?, ?> sliceB = (AsmrReferenceSliceCapture<?, ?>) refB.capture;
-                            if (sliceB.startVirtualIndex() >= sliceA.endVirtualIndex()) {
-                                break bLoop;
-                            }
-                        }
-                    }
+                // check b isn't past the end of a
+                AsmrReferenceCapture aCapture = refA.capture;
+                AsmrReferenceCapture bCapture = refB.capture;
+
+                int bStartPathAtEndOfA = (bLength > aLength) ? pathPrefixB[aLength] : bCapture.startVirtualIndex();
+
+                if (bStartPathAtEndOfA >= aCapture.endIndexExclusive()) {
+                    break;
                 }
 
                 // at this point we know that refA collides with refB
 
                 // check if they are from the same write for early exit
                 if (refA.write == refB.write) {
-                    continue bLoop;
+                    continue;
                 }
 
                 // if they are both inputs they never impose a restriction
                 if (refA.isInput && refB.isInput) {
-                    continue bLoop;
-                }
-
-                // check if they are the same capture (no dependency restriction)
-                if ((refA.capture instanceof AsmrReferenceSliceCapture) == (refB.capture instanceof AsmrReferenceSliceCapture)) {
-                    if (pathPrefixA.length == pathPrefixB.length) {
-                        if (refA.capture instanceof AsmrReferenceSliceCapture) {
-                            int startA = ((AsmrReferenceSliceCapture<?, ?>) refA.capture).startVirtualIndex();
-                            int endA = ((AsmrReferenceSliceCapture<?, ?>) refA.capture).endVirtualIndex();
-                            int startB = ((AsmrReferenceSliceCapture<?, ?>) refB.capture).startVirtualIndex();
-                            int endB = ((AsmrReferenceSliceCapture<?, ?>) refB.capture).endVirtualIndex();
-                            if (startA == startB && endA == endB) {
-                                continue bLoop;
-                            }
-                        } else {
-                            continue bLoop;
-                        }
-                    }
+                    continue;
                 }
 
                 // check if b is completely contained within a
                 boolean bInsideA = false;
 
-                // if a or b isn't a slice there is no other possible case then a complete containment
-                if (!(refA.capture instanceof AsmrReferenceSliceCapture) || !(refB.capture instanceof AsmrReferenceSliceCapture)) {
-                    bInsideA = true;
-                } else {
-                    int startA = ((AsmrReferenceSliceCapture<?, ?>) refA.capture).startVirtualIndex();
-                    int endA = ((AsmrReferenceSliceCapture<?, ?>) refA.capture).endVirtualIndex();
-                    int startB = ((AsmrReferenceSliceCapture<?, ?>) refB.capture).startVirtualIndex();
-                    int endB = ((AsmrReferenceSliceCapture<?, ?>) refB.capture).endVirtualIndex();
+                // check if they are the same capture (no dependency restriction)
+                if (aLength == bLength) {
+                    int startA = refA.capture.startVirtualIndex();
+                    int endA = refA.capture.endVirtualIndex();
+                    int startB = refB.capture.startVirtualIndex();
+                    int endB = refB.capture.endVirtualIndex();
+                    if (startA == startB && endA == endB) {
+                        continue;
+                    }
+
                     if (startB >= startA && endB <= endA) {
                         bInsideA = true;
                     }
+                } else {
+                    // b's path lies in a, so it must be inside
+                    bInsideA = true;
                 }
 
                 if (bInsideA) {
@@ -612,19 +596,18 @@ public class AsmrProcessor implements AutoCloseable {
                     } else {
                         hardDependents.computeIfAbsent(refB.write, k -> new LinkedHashSet<>()).add(refA.write);
                     }
-                    continue bLoop;
-                }
+                } else {
+                    // at this point we know they are slices which overlap like this:
+                    // ^---^
+                    //   ^---^
 
-                // at this point we know they are slices which overlap like this:
-                // ^---^
-                //   ^---^
-
-                // if they are both not inputs, then they conflict - the cyclic dependencies encode this
-                if (!refB.isInput) {
-                    hardDependents.computeIfAbsent(refA.write, k -> new LinkedHashSet<>()).add(refB.write);
-                }
-                if (!refA.isInput) {
-                    hardDependents.computeIfAbsent(refB.write, k -> new LinkedHashSet<>()).add(refA.write);
+                    // if they are both not inputs, then they conflict - the cyclic dependencies encode this
+                    if (!refB.isInput) {
+                        hardDependents.computeIfAbsent(refA.write, k -> new LinkedHashSet<>()).add(refB.write);
+                    }
+                    if (!refA.isInput) {
+                        hardDependents.computeIfAbsent(refB.write, k -> new LinkedHashSet<>()).add(refA.write);
+                    }
                 }
             }
         }
