@@ -7,14 +7,7 @@ import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.Opcodes;
 import org.quiltmc.asmr.processor.annotation.AllowLambdaCapture;
 import org.quiltmc.asmr.processor.annotation.HideFromTransformers;
-import org.quiltmc.asmr.processor.capture.AsmrCapture;
-import org.quiltmc.asmr.processor.capture.AsmrCopyNodeCaputre;
-import org.quiltmc.asmr.processor.capture.AsmrCopySliceCapture;
-import org.quiltmc.asmr.processor.capture.AsmrNodeCapture;
-import org.quiltmc.asmr.processor.capture.AsmrReferenceCapture;
-import org.quiltmc.asmr.processor.capture.AsmrReferenceNodeCapture;
-import org.quiltmc.asmr.processor.capture.AsmrReferenceSliceCapture;
-import org.quiltmc.asmr.processor.capture.AsmrSliceCapture;
+import org.quiltmc.asmr.processor.capture.*;
 import org.quiltmc.asmr.processor.tree.AsmrAbstractListNode;
 import org.quiltmc.asmr.processor.tree.AsmrNode;
 import org.quiltmc.asmr.processor.tree.AsmrTreeModificationManager;
@@ -22,32 +15,14 @@ import org.quiltmc.asmr.processor.tree.AsmrValueNode;
 import org.quiltmc.asmr.processor.tree.asmvisitor.AsmrClassVisitor;
 import org.quiltmc.asmr.processor.tree.member.AsmrClassNode;
 
-import java.io.BufferedInputStream;
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.UncheckedIOException;
+import java.io.*;
 import java.lang.ref.SoftReference;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Base64;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Queue;
-import java.util.Set;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Consumer;
@@ -62,35 +37,7 @@ import java.util.zip.ZipInputStream;
 public class AsmrProcessor implements AutoCloseable {
     public static final int ASM_VERSION = Opcodes.ASM9;
 
-    private static final Comparator<AsmrReferenceCapture> REF_CAPTURE_TREE_ORDER = (captureA, captureB) -> {
-        int[] pathA = captureA.pathPrefix();
-        int[] pathB = captureB.pathPrefix();
-        int i;
-        // find the point the two paths diverge, compare the children indexes at that point
-        for (i = 0; i < pathA.length && i < pathB.length; i++) {
-            if (pathA[i] != pathB[i]) {
-                return Integer.compare(pathA[i], pathB[i]);
-            }
-        }
-
-        if (pathA.length < pathB.length && captureA instanceof AsmrReferenceSliceCapture) {
-            // pathA ended but captureA is a slice, so need to check the slice index
-            int aStartIndex = ((AsmrReferenceSliceCapture<?, ?>) captureA).startIndexInclusive();
-            return aStartIndex <= pathB[i] ? -1 : 1;
-        } else if (pathB.length < pathA.length && captureB instanceof AsmrReferenceSliceCapture) {
-            // pathB ended but captureB is a slice, so need to check the slice index
-            int bStartIndex = ((AsmrReferenceSliceCapture<?, ?>) captureB).startIndexInclusive();
-            return bStartIndex <= pathA[i] ? -1 : 1;
-        } else if (pathA.length == pathB.length && captureA instanceof AsmrReferenceSliceCapture && captureB instanceof AsmrReferenceSliceCapture) {
-            // pathA and pathB both end at the same time and are slices, compare their start indexes
-            int aStartVirtualIndex = ((AsmrReferenceSliceCapture<?, ?>) captureA).startVirtualIndex();
-            int bStartVirtualIndex = ((AsmrReferenceSliceCapture<?, ?>) captureB).startVirtualIndex();
-            return Integer.compare(aStartVirtualIndex, bStartVirtualIndex);
-        } else {
-            // sort the outer one before the inner one
-            return Integer.compare(pathA.length, pathB.length);
-        }
-    };
+    private static final Comparator<AsmrReferenceCapture> REF_CAPTURE_TREE_ORDER = new AsmrReferenceCaptureComparator();
 
     private final AsmrPlatform platform;
 
@@ -877,9 +824,9 @@ public class AsmrProcessor implements AutoCloseable {
      * {@code list.size() * 2 + 1}. To find the virtual index before node {@code i}, use {@code i * 2 + 1}, to find the
      * virtual index after node {@code i}, use {@code i * 2 + 2}.
      *
-     * @param list The list to capture in
+     * @param list              The list to capture in
      * @param startVirtualIndex The start virtual index (inclusive)
-     * @param endVirtualIndex The end virtual index (exclusive)
+     * @param endVirtualIndex   The end virtual index (exclusive)
      */
     public <T extends AsmrNode<T>> AsmrSliceCapture<T> refCapture(AsmrAbstractListNode<T, ?> list, int startVirtualIndex, int endVirtualIndex) {
         checkAction(AsmrTransformerAction.READ);
@@ -890,18 +837,18 @@ public class AsmrProcessor implements AutoCloseable {
     }
 
     public <T extends AsmrNode<T>> void addWrite(
-            AsmrTransformer transformer,
-            AsmrNodeCapture<T> target,
-            Supplier<? extends T> replacementSupplier
+        AsmrTransformer transformer,
+        AsmrNodeCapture<T> target,
+        Supplier<? extends T> replacementSupplier
     ) {
         addWrite(transformer, target, replacementSupplier, Collections.emptySet());
     }
 
     public <T extends AsmrNode<T>> void addWrite(
-            AsmrTransformer transformer,
-            AsmrNodeCapture<T> target,
-            Supplier<? extends T> replacementSupplier,
-            Set<AsmrCapture> refCaptureInputs
+        AsmrTransformer transformer,
+        AsmrNodeCapture<T> target,
+        Supplier<? extends T> replacementSupplier,
+        Set<AsmrCapture> refCaptureInputs
     ) {
         checkAction(AsmrTransformerAction.READ);
         if (transformer == null) {
@@ -916,18 +863,18 @@ public class AsmrProcessor implements AutoCloseable {
     }
 
     public <T extends AsmrNode<T>, L extends AsmrAbstractListNode<T, L>> void addWrite(
-            AsmrTransformer transformer,
-            AsmrSliceCapture<T> target,
-            Supplier<? extends L> replacementSupplier
+        AsmrTransformer transformer,
+        AsmrSliceCapture<T> target,
+        Supplier<? extends L> replacementSupplier
     ) {
         addWrite(transformer, target, replacementSupplier, Collections.emptySet());
     }
 
     public <T extends AsmrNode<T>, L extends AsmrAbstractListNode<T, L>> void addWrite(
-            AsmrTransformer transformer,
-            AsmrSliceCapture<T> target,
-            Supplier<? extends L> replacementSupplier,
-            Set<AsmrCapture> refCaptureInputs
+        AsmrTransformer transformer,
+        AsmrSliceCapture<T> target,
+        Supplier<? extends L> replacementSupplier,
+        Set<AsmrCapture> refCaptureInputs
     ) {
         checkAction(AsmrTransformerAction.READ);
         if (transformer == null) {
@@ -1089,7 +1036,9 @@ public class AsmrProcessor implements AutoCloseable {
             this.inputStreamSupplier = inputStreamSupplier;
         }
 
-        /** Warning: NOT thread safe! */
+        /**
+         * Warning: NOT thread safe!
+         */
         public AsmrClassNode get() throws IOException {
             if (modifiedClass != null) {
                 return modifiedClass;
@@ -1117,7 +1066,9 @@ public class AsmrProcessor implements AutoCloseable {
             return val;
         }
 
-        /** Warning: NOT thread safe! */
+        /**
+         * Warning: NOT thread safe!
+         */
         @Nullable
         public AsmrConstantPool getConstantPool() throws IOException {
             if (modifiedClass != null) {
