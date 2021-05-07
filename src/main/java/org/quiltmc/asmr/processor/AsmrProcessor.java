@@ -610,6 +610,12 @@ public class AsmrProcessor implements AutoCloseable {
                             if (sliceB.startVirtualIndex() >= sliceA.endVirtualIndex()) {
                                 break bLoop;
                             }
+
+                            // special case: check if b is an empty slice on the edge of a, then it's not colliding
+                            if (sliceB.startVirtualIndex() == sliceB.endVirtualIndex()
+                                    && (sliceA.startVirtualIndex() == sliceB.startVirtualIndex() || sliceA.endVirtualIndex() == sliceB.startVirtualIndex())) {
+                                continue bLoop;
+                            }
                         }
                     }
                 }
