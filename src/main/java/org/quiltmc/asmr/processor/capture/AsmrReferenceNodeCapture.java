@@ -14,7 +14,7 @@ public class AsmrReferenceNodeCapture<T extends AsmrNode<T>> implements AsmrNode
     private final Class<? extends T> type;
     private final String className;
     private final int[] path;
-    private T resolved;
+    private T cachedResolved = null;
 
     @SuppressWarnings("unchecked")
     public AsmrReferenceNodeCapture(T node) {
@@ -44,7 +44,18 @@ public class AsmrReferenceNodeCapture<T extends AsmrNode<T>> implements AsmrNode
     }
 
     @Override
-    public void computeResolved(AsmrProcessor processor) {
+    public int[] pathPrefix() {
+        return path;
+    }
+
+    @Override
+    public T resolved(AsmrProcessor processor) {
+        processor.checkWritingClass(className);
+
+        if (cachedResolved != null) {
+            return cachedResolved;
+        }
+
         AsmrNode<?> node = processor.findClassImmediately(className);
         if (node == null) {
             throw new IllegalStateException("Reference capture to class '" + className + "' which does not exist in this processor");
@@ -57,13 +68,7 @@ public class AsmrReferenceNodeCapture<T extends AsmrNode<T>> implements AsmrNode
             node = node.children().get(childIndex);
         }
 
-        this.resolved = type.cast(node);
-    }
-
-    @Override
-    public T resolved(AsmrProcessor processor) {
-        processor.checkWritingClass(className);
-        return resolved;
+        return cachedResolved = type.cast(node);
     }
 
     @Override

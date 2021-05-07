@@ -52,7 +52,7 @@ public final class FridgeVerifier extends ClassVisitor {
 		if (!superName.equals("java/lang/Object")) {
 			throw new VerificationException(className, "Transformer must extend Object");
 		}
-		if (interfaces.length != 1 || interfaces[0].equals("org.quiltmc.asmr.processor.AsmrTransformer")) {
+		if (interfaces.length != 1 || !interfaces[0].equals("org/quiltmc/asmr/processor/AsmrTransformer")) {
 			throw new VerificationException(className, "Transformer cannot implement any interfaces");
 		}
 	}

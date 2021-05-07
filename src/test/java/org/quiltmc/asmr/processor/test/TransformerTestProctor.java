@@ -21,11 +21,9 @@ public class TransformerTestProctor {
 			{
 				AsmrProcessor processor = new AsmrProcessor(platform);
 
-
-				FridgeVerifier.verify(platform, bytecode);
-
 				processor.addClass(targetClassName, platform.getClassBytecode(targetClassName));
 				for (Class<? extends AsmrTransformer> transformer : transformers) {
+					//FridgeVerifier.verify(platform, platform.getClassBytecode(transformer.getName().replace('.', '/')));
 					processor.addTransformer(transformer);
 				}
 

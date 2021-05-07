@@ -22,12 +22,12 @@ public class AsmrCopySliceCapture<T extends AsmrNode<T>> implements AsmrSliceCap
     }
 
     @Override
-    public int startNodeInclusive(AsmrProcessor processor) {
+    public int startIndexInclusive() {
         return 0;
     }
 
     @Override
-    public int endNodeExclusive(AsmrProcessor processor) {
+    public int endIndexExclusive() {
         return list.size();
     }
 }

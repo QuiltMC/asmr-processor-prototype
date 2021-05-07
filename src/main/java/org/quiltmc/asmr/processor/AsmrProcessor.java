@@ -41,6 +41,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -53,12 +54,43 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.jar.JarFile;
+import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 @AllowLambdaCapture
 public class AsmrProcessor implements AutoCloseable {
     public static final int ASM_VERSION = Opcodes.ASM9;
+
+    private static final Comparator<AsmrReferenceCapture> REF_CAPTURE_TREE_ORDER = (captureA, captureB) -> {
+        int[] pathA = captureA.pathPrefix();
+        int[] pathB = captureB.pathPrefix();
+        int i;
+        // find the point the two paths diverge, compare the children indexes at that point
+        for (i = 0; i < pathA.length && i < pathB.length; i++) {
+            if (pathA[i] != pathB[i]) {
+                return Integer.compare(pathA[i], pathB[i]);
+            }
+        }
+
+        if (pathA.length < pathB.length && captureA instanceof AsmrReferenceSliceCapture) {
+            // pathA ended but captureA is a slice, so need to check the slice index
+            int aStartIndex = ((AsmrReferenceSliceCapture<?, ?>) captureA).startIndexInclusive();
+            return aStartIndex <= pathB[i] ? -1 : 1;
+        } else if (pathB.length < pathA.length && captureB instanceof AsmrReferenceSliceCapture) {
+            // pathB ended but captureB is a slice, so need to check the slice index
+            int bStartIndex = ((AsmrReferenceSliceCapture<?, ?>) captureB).startIndexInclusive();
+            return bStartIndex <= pathA[i] ? -1 : 1;
+        } else if (pathA.length == pathB.length && captureA instanceof AsmrReferenceSliceCapture && captureB instanceof AsmrReferenceSliceCapture) {
+            // pathA and pathB both end at the same time and are slices, compare their start indexes
+            int aStartVirtualIndex = ((AsmrReferenceSliceCapture<?, ?>) captureA).startVirtualIndex();
+            int bStartVirtualIndex = ((AsmrReferenceSliceCapture<?, ?>) captureB).startVirtualIndex();
+            return Integer.compare(aStartVirtualIndex, bStartVirtualIndex);
+        } else {
+            // sort the outer one before the inner one
+            return Integer.compare(pathA.length, pathB.length);
+        }
+    };
 
     private final AsmrPlatform platform;
 
@@ -75,7 +107,6 @@ public class AsmrProcessor implements AutoCloseable {
     private final Map<String, List<String>> roundDependents = new HashMap<>();
     private final Map<String, List<String>> writeDependents = new HashMap<>();
     private ConcurrentHashMap<String, ConcurrentLinkedQueue<ClassRequest>> requestedClasses = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, ConcurrentLinkedQueue<AsmrReferenceCapture>> referenceCaptures = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, ConcurrentLinkedQueue<Write>> writes = new ConcurrentHashMap<>();
     private final Set<String> modifiedClasses = new HashSet<>();
 
@@ -247,23 +278,6 @@ public class AsmrProcessor implements AutoCloseable {
         return splitByDependencyGraphDepth(transformers, roundDependents);
     }
 
-    private Map<String, Integer> getTransformerIndexes(List<AsmrTransformer> transformers) {
-        List<List<AsmrTransformer>> byGraphDepth = splitByDependencyGraphDepth(transformers, writeDependents);
-
-        Map<String, Integer> indexes = new HashMap<>(transformers.size());
-        for (List<AsmrTransformer> group : byGraphDepth) {
-            // resolve ties by sorting lexicographically by transformer id
-            group.sort(Comparator.comparing(transformer -> transformer.getClass().getName()));
-            // add indexes
-            for (AsmrTransformer transformer : group) {
-                String transformerId = transformer.getClass().getName();
-                indexes.put(transformerId, indexes.size());
-            }
-        }
-
-        return indexes;
-    }
-
     private static List<List<AsmrTransformer>> splitByDependencyGraphDepth(List<AsmrTransformer> transformers, Map<String, List<String>> dependentsGraph) {
         if (transformers.isEmpty()) {
             return Collections.emptyList();
@@ -355,11 +369,10 @@ public class AsmrProcessor implements AutoCloseable {
 
         // write transformer action
         currentAction = AsmrTransformerAction.WRITE;
-        Map<String, Integer> transformerIndexes = getTransformerIndexes(transformers);
         writes.entrySet().parallelStream().forEach(entry -> {
             String className = entry.getKey();
             ConcurrentLinkedQueue<Write> writes = entry.getValue();
-            processWritesForClass(className, writes, transformerIndexes);
+            processWritesForClass(className, writes);
         });
 
         modifiedClasses.addAll(writes.keySet());
@@ -368,7 +381,6 @@ public class AsmrProcessor implements AutoCloseable {
         }
 
         writes.clear();
-        referenceCaptures.clear();
 
         currentAction = null;
     }
@@ -419,7 +431,7 @@ public class AsmrProcessor implements AutoCloseable {
         }
     }
 
-    private void processWritesForClass(String className, ConcurrentLinkedQueue<Write> writes, Map<String, Integer> transformerIndexes) {
+    private void processWritesForClass(String className, ConcurrentLinkedQueue<Write> writes) {
         try {
             ClassProvider classProvider = allClasses.get(className);
             classProvider.modifiedClass = classProvider.get();
@@ -430,15 +442,18 @@ public class AsmrProcessor implements AutoCloseable {
         try {
             currentWritingClassName.set(className);
 
-            ConcurrentLinkedQueue<AsmrReferenceCapture> refCaptures = referenceCaptures.remove(className);
-            if (refCaptures != null) {
-                for (AsmrReferenceCapture refCapture : refCaptures) {
-                    refCapture.computeResolved(this);
+            List<Write> sortedWrites = sortWritesAndDetectConflicts(new ArrayList<>(writes));
+
+            Set<AsmrReferenceCapture> allRefCapturesSet = new HashSet<>();
+            for (Write write : sortedWrites) {
+                allRefCapturesSet.add(write.target);
+                for (AsmrCapture refCaptureInput : write.refCaptureInputs) {
+                    allRefCapturesSet.add((AsmrReferenceCapture) refCaptureInput);
                 }
             }
+            List<AsmrReferenceCapture> sortedRefCaptures = new ArrayList<>(allRefCapturesSet);
+            sortedRefCaptures.sort(REF_CAPTURE_TREE_ORDER);
 
-            List<Write> sortedWrites = new ArrayList<>(writes);
-            sortedWrites.sort(Comparator.comparing(write -> transformerIndexes.get(write.transformer.getClass().getName())));
             for (Write write : sortedWrites) {
                 currentWrite.set(write);
                 if (write.target instanceof AsmrNodeCapture) {
@@ -446,16 +461,278 @@ public class AsmrProcessor implements AutoCloseable {
                 } else {
                     AsmrSliceCapture<?> sliceCapture = (AsmrSliceCapture<?>) write.target;
                     AsmrAbstractListNode<?, ?> list = sliceCapture.resolvedList(this);
-                    int startIndex = sliceCapture.startNodeInclusive(this);
-                    int endIndex = sliceCapture.endNodeExclusive(this);
+                    int startIndex = sliceCapture.startIndexInclusive();
+                    int endIndex = sliceCapture.endIndexExclusive();
                     list.remove(startIndex, endIndex);
-                    insertCopy(list, startIndex, (AsmrAbstractListNode<?, ?>) write.replacementSupplier.get());
+                    AsmrAbstractListNode<?, ?> replacement = (AsmrAbstractListNode<?, ?>) write.replacementSupplier.get();
+                    insertCopy(list, startIndex, replacement);
+
+                    shiftRefCapturesFrom(sortedRefCaptures, sliceCapture, endIndex - startIndex + replacement.size());
                 }
             }
         } finally {
             currentWritingClassName.set(null);
             currentWrite.set(null);
         }
+    }
+
+    private void shiftRefCapturesFrom(List<AsmrReferenceCapture> sortedRefCaptures, AsmrSliceCapture<?> start, int shiftBy) {
+        int startVirtualIndex = ((AsmrReferenceSliceCapture<?, ?>) start).startVirtualIndex();
+        int index = Collections.binarySearch(sortedRefCaptures, (AsmrReferenceCapture) start, REF_CAPTURE_TREE_ORDER);
+        assert index >= 0;
+
+        int[] pathPrefixA = ((AsmrReferenceCapture) start).pathPrefix();
+        backwardsLoop:
+        for (int i = index; i >= 0; i--) {
+            AsmrReferenceCapture refCapture = sortedRefCaptures.get(i);
+            int[] pathPrefixB = refCapture.pathPrefix();
+
+            // check if pathPrefixB starts with pathPrefixA
+            if (pathPrefixB.length < pathPrefixA.length) {
+                break backwardsLoop;
+            }
+            for (int j = pathPrefixA.length - 1; j >= 0; j--) {
+                if (pathPrefixB[j] != pathPrefixA[j]) {
+                    break backwardsLoop;
+                }
+            }
+
+            if (refCapture instanceof AsmrReferenceSliceCapture) {
+                AsmrReferenceSliceCapture<?, ?> slice = (AsmrReferenceSliceCapture<?, ?>) refCapture;
+                if (slice.endVirtualIndex() > startVirtualIndex) {
+                    slice.shiftEndVirtualIndex(shiftBy * 2);
+                }
+            }
+        }
+
+        forwardsLoop:
+        for (int i = index + 1; i < sortedRefCaptures.size(); i++) {
+            AsmrReferenceCapture refCapture = sortedRefCaptures.get(i);
+            int[] pathPrefixB = refCapture.pathPrefix();
+
+            // check if pathPrefixB starts with pathPrefixA
+            if (pathPrefixB.length < pathPrefixA.length) {
+                break forwardsLoop;
+            }
+            for (int j = pathPrefixA.length - 1; j >= 0; j--) {
+                if (pathPrefixB[j] != pathPrefixA[j]) {
+                    break forwardsLoop;
+                }
+            }
+
+            if (pathPrefixB.length > pathPrefixA.length) {
+                pathPrefixB[pathPrefixA.length] += shiftBy;
+            } else if (refCapture instanceof AsmrReferenceSliceCapture) {
+                AsmrReferenceSliceCapture<?, ?> slice = (AsmrReferenceSliceCapture<?, ?>) refCapture;
+                if (slice.startVirtualIndex() > startVirtualIndex) {
+                    slice.shiftStartVirtualIndex(shiftBy * 2);
+                }
+                if (slice.endVirtualIndex() > startVirtualIndex) {
+                    slice.shiftEndVirtualIndex(shiftBy * 2);
+                }
+            }
+        }
+    }
+
+    private List<Write> sortWritesAndDetectConflicts(List<Write> writes) {
+        Map<String, List<Write>> writesByTransformer = writes.stream().collect(Collectors.groupingBy(write -> write.transformer.getClass().getName()));
+        Map<Write, LinkedHashSet<Write>> hardDependents = new HashMap<>(this.writeDependents.size());
+        Map<Write, LinkedHashSet<Write>> softDependents = new HashMap<>();
+
+        // transfer transformer write dependents into hard write dependents
+        this.writeDependents.forEach((transformerId, dependents) -> {
+            List<Write> writesThisTransformer = writesByTransformer.get(transformerId);
+            if (writesThisTransformer != null) {
+                for (Write write : writesThisTransformer) {
+                    LinkedHashSet<Write> dependentWrites = new LinkedHashSet<>();
+                    hardDependents.put(write, dependentWrites);
+                    for (String dependent : dependents) {
+                        List<Write> dependentWritesToAdd = writesByTransformer.get(dependent);
+                        if (dependentWritesToAdd != null) {
+                            dependentWrites.addAll(dependentWritesToAdd);
+                        }
+                    }
+                }
+            }
+        });
+
+        class Ref {
+            final AsmrReferenceCapture capture;
+            final Write write;
+            final boolean isInput;
+
+            Ref(AsmrReferenceCapture capture, Write write, boolean isInput) {
+                this.capture = capture;
+                this.write = write;
+                this.isInput = isInput;
+            }
+        }
+
+        List<Ref> refs = new ArrayList<>();
+        for (Write write : writes) {
+            refs.add(new Ref(write.target, write, false));
+            for (AsmrCapture input : write.refCaptureInputs) {
+                refs.add(new Ref((AsmrReferenceCapture) input, write, true));
+            }
+        }
+
+        refs.sort((refA, refB) -> REF_CAPTURE_TREE_ORDER.compare(refA.capture, refB.capture));
+
+        for (int indexA = 0; indexA < refs.size(); indexA++) {
+            Ref refA = refs.get(indexA);
+            int[] pathPrefixA = refA.capture.pathPrefix();
+
+            bLoop:
+            for (int indexB = indexA + 1; indexB < refs.size(); indexB++) {
+                Ref refB = refs.get(indexB);
+                int[] pathPrefixB = refB.capture.pathPrefix();
+
+                // check that the b prefix starts with the a prefix
+                if (pathPrefixB.length < pathPrefixA.length) {
+                    break bLoop;
+                }
+                for (int i = pathPrefixA.length - 1; i >= 0; i--) {
+                    if (pathPrefixB[i] != pathPrefixA[i]) {
+                        break bLoop;
+                    }
+                }
+
+                // check b isn't past the end of a if a is a capture
+                if (refA.capture instanceof AsmrReferenceSliceCapture) {
+                    AsmrReferenceSliceCapture<?, ?> sliceA = (AsmrReferenceSliceCapture<?, ?>) refA.capture;
+                    if (pathPrefixB.length > pathPrefixA.length) {
+                        if (pathPrefixB[pathPrefixA.length] >= sliceA.endIndexExclusive()) {
+                            break bLoop;
+                        }
+                    } else { // if (pathPrefixA.length == pathPrefixB.length)
+                        if (refB.capture instanceof AsmrReferenceSliceCapture) {
+                            AsmrReferenceSliceCapture<?, ?> sliceB = (AsmrReferenceSliceCapture<?, ?>) refB.capture;
+                            if (sliceB.startVirtualIndex() >= sliceA.endVirtualIndex()) {
+                                break bLoop;
+                            }
+                        }
+                    }
+                }
+
+                // at this point we know that refA collides with refB
+
+                // check if they are from the same write for early exit
+                if (refA.write == refB.write) {
+                    continue bLoop;
+                }
+
+                // if they are both inputs they never impose a restriction
+                if (refA.isInput && refB.isInput) {
+                    continue bLoop;
+                }
+
+                // check if they are the same capture (no dependency restriction)
+                if ((refA.capture instanceof AsmrReferenceSliceCapture) == (refB.capture instanceof AsmrReferenceSliceCapture)) {
+                    if (pathPrefixA.length == pathPrefixB.length) {
+                        if (refA.capture instanceof AsmrReferenceSliceCapture) {
+                            int startA = ((AsmrReferenceSliceCapture<?, ?>) refA.capture).startVirtualIndex();
+                            int endA = ((AsmrReferenceSliceCapture<?, ?>) refA.capture).endVirtualIndex();
+                            int startB = ((AsmrReferenceSliceCapture<?, ?>) refB.capture).startVirtualIndex();
+                            int endB = ((AsmrReferenceSliceCapture<?, ?>) refB.capture).endVirtualIndex();
+                            if (startA == startB && endA == endB) {
+                                continue bLoop;
+                            }
+                        } else {
+                            continue bLoop;
+                        }
+                    }
+                }
+
+                // check if b is completely contained within a
+                boolean bInsideA = false;
+
+                // if a or b isn't a slice there is no other possible case then a complete containment
+                if (!(refA.capture instanceof AsmrReferenceSliceCapture) || !(refB.capture instanceof AsmrReferenceSliceCapture)) {
+                    bInsideA = true;
+                } else {
+                    int startA = ((AsmrReferenceSliceCapture<?, ?>) refA.capture).startVirtualIndex();
+                    int endA = ((AsmrReferenceSliceCapture<?, ?>) refA.capture).endVirtualIndex();
+                    int startB = ((AsmrReferenceSliceCapture<?, ?>) refB.capture).startVirtualIndex();
+                    int endB = ((AsmrReferenceSliceCapture<?, ?>) refB.capture).endVirtualIndex();
+                    if (startB >= startA && endB <= endA) {
+                        bInsideA = true;
+                    }
+                }
+
+                if (bInsideA) {
+                    if (refA.isInput) {
+                        softDependents.computeIfAbsent(refB.write, k -> new LinkedHashSet<>()).add(refA.write);
+                    } else {
+                        hardDependents.computeIfAbsent(refB.write, k -> new LinkedHashSet<>()).add(refA.write);
+                    }
+                    continue bLoop;
+                }
+
+                // at this point we know they are slices which overlap like this:
+                // ^---^
+                //   ^---^
+
+                // if they are both not inputs, then they conflict - the cyclic dependencies encode this
+                if (!refB.isInput) {
+                    hardDependents.computeIfAbsent(refA.write, k -> new LinkedHashSet<>()).add(refB.write);
+                }
+                if (!refA.isInput) {
+                    hardDependents.computeIfAbsent(refB.write, k -> new LinkedHashSet<>()).add(refA.write);
+                }
+            }
+        }
+
+        // promote soft dependencies to hard dependencies where they don't conflict the other way
+        softDependents.forEach((write, dependents) -> {
+            for (Write dependent : dependents) {
+                Set<Write> inverseHardDependents = hardDependents.get(dependent);
+                if (inverseHardDependents == null || !inverseHardDependents.contains(write)) {
+                    hardDependents.computeIfAbsent(write, k -> new LinkedHashSet<>()).add(dependent);
+                }
+            }
+        });
+
+        // topological sort the writes based on dependencies
+        Map<Write, Integer> inDegrees = new HashMap<>();
+        for (Write write : writes) {
+            inDegrees.put(write, 0);
+        }
+        for (Set<Write> dependents : hardDependents.values()) {
+            for (Write dependent : dependents) {
+                inDegrees.merge(dependent, 1, Integer::sum);
+            }
+        }
+
+        Queue<Write> writesToVisit = new LinkedList<>();
+        inDegrees.forEach((write, degrees) -> {
+            if (degrees == 0) {
+                writesToVisit.add(write);
+            }
+        });
+
+        List<Write> sortedWrites = new ArrayList<>(writes.size());
+
+        while (!writesToVisit.isEmpty()) {
+            Write write = writesToVisit.remove();
+            sortedWrites.add(write);
+            Set<Write> dependents = hardDependents.get(write);
+            if (dependents != null) {
+                for (Write dependent : dependents) {
+                    int newInDegree = inDegrees.get(dependent) - 1;
+                    inDegrees.put(dependent, newInDegree);
+                    if (newInDegree == 0) {
+                        writesToVisit.add(dependent);
+                    }
+                }
+            }
+        }
+
+        if (sortedWrites.size() != writes.size()) {
+            // TODO: descriptive error message
+            throw new IllegalStateException("Cyclic explicit or implicit write dependencies");
+        }
+
+        return sortedWrites;
     }
 
     @SuppressWarnings("unchecked")
@@ -577,9 +854,7 @@ public class AsmrProcessor implements AutoCloseable {
 
     public <T extends AsmrNode<T>> AsmrNodeCapture<T> refCapture(T node) {
         checkAction(AsmrTransformerAction.READ);
-        AsmrReferenceNodeCapture<T> capture = new AsmrReferenceNodeCapture<>(node);
-        referenceCaptures.computeIfAbsent(capture.className(), k -> new ConcurrentLinkedQueue<>()).add(capture);
-        return capture;
+        return new AsmrReferenceNodeCapture<>(node);
     }
 
     public <T extends AsmrNode<T>> AsmrSliceCapture<T> copyCapture(AsmrAbstractListNode<T, ?> list, int startInclusive, int endExclusive) {
@@ -595,16 +870,23 @@ public class AsmrProcessor implements AutoCloseable {
         }
     }
 
-    public <T extends AsmrNode<T>> AsmrSliceCapture<T> refCapture(AsmrAbstractListNode<T, ?> list, int startIndex, int endIndex, boolean startInclusive, boolean endInclusive) {
+    /**
+     * Creates a ref slice capture between {@code startVirtualIndex} and {@code endVirtualIndex} in the given list.
+     * The "virtual index" in a list includes the meaning of index and whether you want to point before/after a certain
+     * node. There are two virtual indexes per "gap" in the list, starting at index 0 and ending with
+     * {@code list.size() * 2 + 1}. To find the virtual index before node {@code i}, use {@code i * 2 + 1}, to find the
+     * virtual index after node {@code i}, use {@code i * 2 + 2}.
+     *
+     * @param list The list to capture in
+     * @param startVirtualIndex The start virtual index (inclusive)
+     * @param endVirtualIndex The end virtual index (exclusive)
+     */
+    public <T extends AsmrNode<T>> AsmrSliceCapture<T> refCapture(AsmrAbstractListNode<T, ?> list, int startVirtualIndex, int endVirtualIndex) {
         checkAction(AsmrTransformerAction.READ);
-        int range = endIndex - startIndex;
-        int minRange = !startInclusive && !endInclusive ? 1 : 0;
-        if (startIndex < (startInclusive ? 0 : -1) || endIndex > (endInclusive ? list.size() - 1 : list.size()) || range < minRange) {
-            throw new IndexOutOfBoundsException(String.format("%s%d, %d%s, size %d", startInclusive ? "[" : "(", startIndex, endIndex, endInclusive ? "]" : ")", list.size()));
+        if (startVirtualIndex < 0 || endVirtualIndex >= list.size() * 2 + 2 || endVirtualIndex < startVirtualIndex) {
+            throw new IllegalArgumentException(String.format("Virtual [%d, %d), size %d", startVirtualIndex, endVirtualIndex, list.size()));
         }
-        AsmrReferenceSliceCapture<T, ?> capture = new AsmrReferenceSliceCapture<>(list, startIndex, endIndex, startInclusive, endInclusive);
-        referenceCaptures.computeIfAbsent(capture.className(), k -> new ConcurrentLinkedQueue<>()).add(capture);
-        return capture;
+        return new AsmrReferenceSliceCapture<>(list, startVirtualIndex, endVirtualIndex);
     }
 
     public <T extends AsmrNode<T>> void addWrite(
@@ -680,8 +962,8 @@ public class AsmrProcessor implements AutoCloseable {
         }
 
         L resolvedList = (L) source.resolvedList(this);
-        int startIndex = source.startNodeInclusive(this);
-        int endIndex = source.endNodeExclusive(this);
+        int startIndex = source.startIndexInclusive();
+        int endIndex = source.endIndexExclusive();
         for (int i = startIndex; i < endIndex; i++) {
             target.insertCopy(index + i, resolvedList.get(i));
         }

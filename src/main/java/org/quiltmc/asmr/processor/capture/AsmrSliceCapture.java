@@ -13,8 +13,8 @@ public interface AsmrSliceCapture<T extends AsmrNode<T>> extends AsmrCapture {
     AsmrAbstractListNode<T, ?> resolvedList(AsmrProcessor processor);
 
     @ApiStatus.Internal
-    int startNodeInclusive(AsmrProcessor processor);
+    int startIndexInclusive();
 
     @ApiStatus.Internal
-    int endNodeExclusive(AsmrProcessor processor);
+    int endIndexExclusive();
 }

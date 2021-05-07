@@ -71,7 +71,7 @@ public class AsmrApplicatorTest {
              * constant "Hello Earth!", into the target class "TestTargetClass"
              */
             processor.withClass("transformer/test/org/quiltmc/asmr/processor/transformer/AsmrApplicatorTest$TestTargetClass", targetClass -> {
-                AsmrSliceCapture<AsmrMethodNode> targetCapture = processor.refCapture(targetClass.methods(), 0, 0, true, false);
+                AsmrSliceCapture<AsmrMethodNode> targetCapture = processor.refCapture(targetClass.methods(), 0, 0);
                 processor.withClasses(name -> true, cp -> cp.hasString("Hello Earth!") && cp.hasUtf("getGreeting"), sourceClass -> {
                     AsmrMethodNode getGreeting = sourceClass.methods().findMethod("getGreeting", "()Ljava/lang/String;");
                     if (getGreeting == null) {
@@ -131,10 +131,10 @@ public class AsmrApplicatorTest {
 
         @SuppressWarnings("unchecked")
         private <N extends AsmrAbstractInsnNode<N>> void doRead(AsmrProcessor processor) {
-            processor.withClass("org/quiltmc/asmr/processor/test/AsmrApplicatorTest$OrderingTestTarget", classNode -> {
+            processor.withClass("transformer/test/org/quiltmc/asmr/processor/transformer/AsmrApplicatorTest$OrderingTestTarget", classNode -> {
                 AsmrMethodNode method = classNode.methods().findMethod("compute", "()Ljava/lang/String;");
                 if (method == null) throw new NullPointerException();
-                AsmrSliceCapture<N> targetCapture = (AsmrSliceCapture<N>) processor.refCapture(method.body().instructions(), -1, -1, false, true);
+                AsmrSliceCapture<N> targetCapture = (AsmrSliceCapture<N>) processor.refCapture(method.body().instructions(), 0, 0);
                 processor.addWrite(this, targetCapture, () -> {
                     AsmrInstructionListNode<N> toInsert = new AsmrInstructionListNode<>();
                     AsmrLdcInsnNode ldcInsn = toInsert.add(AsmrInstructionListNode.LdcInsnType.INSTANCE);
@@ -142,7 +142,7 @@ public class AsmrApplicatorTest {
                     ldcInsn.cstList().add(AsmrConstantList.StringType.INSTANCE).init("first");
                     AsmrMethodInsnNode methodInsn = toInsert.add(AsmrInstructionListNode.MethodInsnType.INSTANCE);
                     methodInsn.opcode().init(Opcodes.INVOKESTATIC);
-                    methodInsn.owner().init("org/quiltmc/asmr/processor/test/AsmrApplicatorTest$OrderingTestTarget");
+                    methodInsn.owner().init("transformer/test/org/quiltmc/asmr/processor/transformer/AsmrApplicatorTest$OrderingTestTarget");
                     methodInsn.name().init("append");
                     methodInsn.desc().init("(Ljava/lang/String;)V");
                     methodInsn.itf().init(false);
@@ -161,7 +161,7 @@ public class AsmrApplicatorTest {
 
         @Override
         public void addDependencies(AsmrProcessor processor) {
-            processor.addWriteDependency(this, "org.quiltmc.asmr.processor.test.AsmrApplicatorTest$WriteFirstTransformer");
+            processor.addWriteDependency(this, "transformer.test.org.quiltmc.asmr.processor.transformer.AsmrApplicatorTest$WriteFirstTransformer");
         }
 
         @Override
@@ -171,10 +171,10 @@ public class AsmrApplicatorTest {
 
         @SuppressWarnings("unchecked")
         private <N extends AsmrAbstractInsnNode<N>> void doRead(AsmrProcessor processor) {
-            processor.withClass("org/quiltmc/asmr/processor/test/AsmrApplicatorTest$OrderingTestTarget", classNode -> {
+            processor.withClass("transformer/test/org/quiltmc/asmr/processor/transformer/AsmrApplicatorTest$OrderingTestTarget", classNode -> {
                 AsmrMethodNode method = classNode.methods().findMethod("compute", "()Ljava/lang/String;");
                 if (method == null) throw new NullPointerException();
-                AsmrSliceCapture<N> targetCapture = (AsmrSliceCapture<N>) processor.refCapture(method.body().instructions(), -1, -1, false, true);
+                AsmrSliceCapture<N> targetCapture = (AsmrSliceCapture<N>) processor.refCapture(method.body().instructions(), 0, 0);
                 processor.addWrite(this, targetCapture, () -> {
                     AsmrInstructionListNode<N> toInsert = new AsmrInstructionListNode<>();
                     AsmrLdcInsnNode ldcInsn = toInsert.add(AsmrInstructionListNode.LdcInsnType.INSTANCE);
@@ -182,7 +182,7 @@ public class AsmrApplicatorTest {
                     ldcInsn.cstList().add(AsmrConstantList.StringType.INSTANCE).init("second");
                     AsmrMethodInsnNode methodInsn = toInsert.add(AsmrInstructionListNode.MethodInsnType.INSTANCE);
                     methodInsn.opcode().init(Opcodes.INVOKESTATIC);
-                    methodInsn.owner().init("org/quiltmc/asmr/processor/test/AsmrApplicatorTest$OrderingTestTarget");
+                    methodInsn.owner().init("transformer/test/org/quiltmc/asmr/processor/transformer/AsmrApplicatorTest$OrderingTestTarget");
                     methodInsn.name().init("append");
                     methodInsn.desc().init("(Ljava/lang/String;)V");
                     methodInsn.itf().init(false);
