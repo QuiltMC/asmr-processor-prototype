@@ -5,7 +5,7 @@ import org.jetbrains.annotations.ApiStatus;
 import java.util.Comparator;
 
 /**
- * Compares the {@code [...pathPrefix, startIndex]} of each capture by lexicographic order.
+ * Compares the {@code [...pathPrefix, startVirtualIndex]} of each capture by lexicographic order.
  */
 @ApiStatus.Internal
 public class AsmrRefCaptureStartComparator implements Comparator<AsmrReferenceCapture> {
