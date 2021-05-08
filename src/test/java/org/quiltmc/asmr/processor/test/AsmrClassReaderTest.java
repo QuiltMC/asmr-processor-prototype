@@ -1,8 +1,8 @@
 package org.quiltmc.asmr.processor.test;
 
 import org.junit.jupiter.api.Test;
-import org.quiltmc.asmr.processor.tree.member.AsmrClassNode;
-import org.quiltmc.asmr.processor.tree.AsmrTreeUtil;
+import org.quiltmc.asmr.tree.member.AsmrClassNode;
+import org.quiltmc.asmr.tree.AsmrTreeUtil;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.quiltmc.asmr.processor.test.AsmrClassTestUtil.findClass;

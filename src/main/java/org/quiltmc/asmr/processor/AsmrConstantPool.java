@@ -2,8 +2,8 @@ package org.quiltmc.asmr.processor;
 
 import org.jetbrains.annotations.ApiStatus;
 import org.quiltmc.asmr.processor.annotation.HideFromTransformers;
-import org.quiltmc.asmr.processor.util.Pair;
-import org.quiltmc.asmr.processor.util.Triple;
+import org.quiltmc.asmr.util.Pair;
+import org.quiltmc.asmr.util.Triple;
 
 import java.io.EOFException;
 import java.io.IOException;

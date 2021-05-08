@@ -3,58 +3,70 @@ package org.quiltmc.asmr.processor;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.ClassReader;
-import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.Opcodes;
 import org.quiltmc.asmr.processor.annotation.AllowLambdaCapture;
 import org.quiltmc.asmr.processor.annotation.HideFromTransformers;
-import org.quiltmc.asmr.processor.capture.*;
-import org.quiltmc.asmr.processor.tree.AsmrAbstractListNode;
-import org.quiltmc.asmr.processor.tree.AsmrNode;
-import org.quiltmc.asmr.processor.tree.AsmrTreeModificationManager;
-import org.quiltmc.asmr.processor.tree.AsmrValueNode;
-import org.quiltmc.asmr.processor.tree.asmvisitor.AsmrClassVisitor;
-import org.quiltmc.asmr.processor.tree.member.AsmrClassNode;
+import org.quiltmc.asmr.processor.capture.AsmrCapture;
+import org.quiltmc.asmr.processor.capture.AsmrCopyNodeCaputre;
+import org.quiltmc.asmr.processor.capture.AsmrCopySliceCapture;
+import org.quiltmc.asmr.processor.capture.AsmrNodeCapture;
+import org.quiltmc.asmr.processor.capture.AsmrReferenceCapture;
+import org.quiltmc.asmr.processor.capture.AsmrReferenceNodeCapture;
+import org.quiltmc.asmr.processor.capture.AsmrReferenceSliceCapture;
+import org.quiltmc.asmr.processor.capture.AsmrSliceCapture;
+import org.quiltmc.asmr.tree.AsmrAbstractListNode;
+import org.quiltmc.asmr.tree.AsmrNode;
+import org.quiltmc.asmr.tree.AsmrTreeModificationManager;
+import org.quiltmc.asmr.tree.AsmrValueNode;
+import org.quiltmc.asmr.tree.asmvisitor.AsmrClassVisitor;
+import org.quiltmc.asmr.tree.member.AsmrClassNode;
 
-import java.io.*;
+import java.io.BufferedInputStream;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.lang.ref.SoftReference;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Base64;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.jar.JarFile;
-import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 @AllowLambdaCapture
-public class AsmrProcessor implements AutoCloseable {
+public final class AsmrProcessor implements AutoCloseable {
     public static final int ASM_VERSION = Opcodes.ASM9;
-
-    private static final Comparator<AsmrReferenceCapture> REF_CAPTURE_TREE_ORDER = new AsmrReferenceCaptureComparator();
 
     private final AsmrPlatform platform;
 
     private final List<JarFile> jarFiles = new ArrayList<>();
 
     private final List<AsmrTransformer> transformers = new ArrayList<>();
-    private final TreeMap<String, ClassProvider> allClasses = new TreeMap<>();
+    private final Map<String, ClassProvider> allClasses = new HashMap<>();
     private final TreeMap<String, String> config = new TreeMap<>();
-    private List<String> phases = Arrays.asList(AsmrStandardPhases.READ_INITIAL, AsmrStandardPhases.READ_FINAL); // TODO: discuss a more comprehensive list
+    List<String> phases = Arrays.asList(AsmrStandardPhases.READ_INITIAL, AsmrStandardPhases.READ_FINAL); // TODO: discuss a more comprehensive list
 
-    private AsmrTransformerAction currentAction = null;
-    private final ThreadLocal<String> currentWritingClassName = new ThreadLocal<>();
-    private final ThreadLocal<Write> currentWrite = new ThreadLocal<>();
+    private final AsmrProcessorRunner processorRunner = new AsmrProcessorRunner(this);
     private final Map<String, List<String>> roundDependents = new HashMap<>();
     private final Map<String, List<String>> writeDependents = new HashMap<>();
-    private ConcurrentHashMap<String, ConcurrentLinkedQueue<ClassRequest>> requestedClasses = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, ConcurrentLinkedQueue<Write>> writes = new ConcurrentHashMap<>();
     private final Set<String> modifiedClasses = new HashSet<>();
 
     private final ConcurrentHashMap<String, ClassInfo> classInfoCache = new ConcurrentHashMap<>();
@@ -175,504 +187,7 @@ public class AsmrProcessor implements AutoCloseable {
             return;
         }
 
-        // compute rounds transformer action
-        currentAction = AsmrTransformerAction.COMPUTE_ROUNDS;
-        List<List<AsmrTransformer>> rounds = computeRounds();
-        currentAction = null;
-
-        for (List<AsmrTransformer> round : rounds) {
-            runReadWriteRound(round);
-        }
-
-    }
-
-    private List<List<AsmrTransformer>> computeRounds() {
-        Map<String, Integer> phaseIndexes = new HashMap<>();
-        List<List<AsmrTransformer>> phases = new ArrayList<>(this.phases.size());
-        for (int i = 0; i < this.phases.size(); i++) {
-            phaseIndexes.put(this.phases.get(i), i);
-            phases.add(new ArrayList<>());
-        }
-        for (AsmrTransformer transformer : transformers) {
-            transformer.addDependencies(this);
-
-            List<String> desiredPhases = transformer.getPhases();
-            boolean foundPhase = false;
-            for (String desiredPhase : desiredPhases) {
-                if (desiredPhase == null) {
-                    foundPhase = true;
-                    break;
-                }
-                Integer index = phaseIndexes.get(desiredPhase);
-                if (index != null) {
-                    phases.get(index).add(transformer);
-                    foundPhase = true;
-                    break;
-                }
-            }
-            if (!foundPhase) {
-                throw new IllegalStateException("Could not find desired transformer phase: " + desiredPhases);
-            }
-        }
-        List<List<AsmrTransformer>> rounds = new ArrayList<>();
-        for (List<AsmrTransformer> phase : phases) {
-            rounds.addAll(computeRoundDependencies(phase));
-        }
-        return rounds;
-    }
-
-    private List<List<AsmrTransformer>> computeRoundDependencies(List<AsmrTransformer> transformers) {
-        return splitByDependencyGraphDepth(transformers, roundDependents);
-    }
-
-    private static List<List<AsmrTransformer>> splitByDependencyGraphDepth(List<AsmrTransformer> transformers, Map<String, List<String>> dependentsGraph) {
-        if (transformers.isEmpty()) {
-            return Collections.emptyList();
-        }
-
-        Map<String, Integer> inDegrees = new HashMap<>();
-        dependentsGraph.forEach((parent, dependents) -> {
-            for (String dependent : dependents) {
-                inDegrees.merge(dependent, 1, Integer::sum);
-            }
-            inDegrees.putIfAbsent(parent, 0);
-        });
-
-        for (AsmrTransformer transformer : transformers) {
-            String transformerId = transformer.getClass().getName();
-            inDegrees.putIfAbsent(transformerId, 0);
-        }
-
-        Map<String, Integer> depths = new HashMap<>(inDegrees.size());
-        Queue<String> queue = new LinkedList<>();
-        inDegrees.forEach((id, inDegree) -> {
-            if (inDegree == 0) {
-                queue.add(id);
-                depths.put(id, 0);
-            }
-        });
-
-        int visited = 0;
-        int maxDepth = 0;
-
-        while (!queue.isEmpty()) {
-            String transformerId = queue.remove();
-            visited++;
-            List<String> dependents = dependentsGraph.get(transformerId);
-            if (dependents != null && !dependents.isEmpty()) {
-                int nextDepth = depths.get(transformerId) + 1;
-                maxDepth = Math.max(nextDepth, maxDepth);
-                for (String dependent : dependents) {
-                    int inDegree = inDegrees.get(dependent) - 1;
-                    inDegrees.put(dependent, inDegree);
-                    depths.merge(dependent, nextDepth, Math::max);
-                    if (inDegree == 0) {
-                        queue.add(dependent);
-                    }
-                }
-            }
-        }
-        if (visited != inDegrees.size()) {
-            // TODO: report which transformers have cyclic dependencies
-            throw new IllegalStateException("Cyclic dependencies");
-        }
-
-        List<List<AsmrTransformer>> transformersByDepth = new ArrayList<>(maxDepth + 1);
-        for (int i = 0; i <= maxDepth; i++) {
-            transformersByDepth.add(new ArrayList<>());
-        }
-        for (AsmrTransformer transformer : transformers) {
-            String transformerId = transformer.getClass().getName();
-            transformersByDepth.get(depths.get(transformerId)).add(transformer);
-        }
-        transformersByDepth.removeIf(List::isEmpty);
-
-        return transformersByDepth;
-    }
-
-    private void runReadWriteRound(List<AsmrTransformer> transformers) {
-        // read transformer action
-        currentAction = AsmrTransformerAction.READ;
-        transformers.parallelStream().forEach(transformer -> {
-            try {
-                AsmrTreeModificationManager.disableModification();
-                transformer.read(this);
-            } finally {
-                AsmrTreeModificationManager.enableModification();
-            }
-        });
-
-        while (!this.requestedClasses.isEmpty()) {
-            ConcurrentHashMap<String, ConcurrentLinkedQueue<ClassRequest>> requestedClasses = this.requestedClasses;
-            this.requestedClasses = new ConcurrentHashMap<>();
-            requestedClasses.entrySet().parallelStream().forEach(entry -> {
-                String className = entry.getKey();
-                List<ClassRequest> requests = new ArrayList<>(entry.getValue());
-                processReadRequestsForClass(className, requests);
-            });
-        }
-
-        // TODO: detect conflicts
-
-        // write transformer action
-        currentAction = AsmrTransformerAction.WRITE;
-        writes.entrySet().parallelStream().forEach(entry -> {
-            String className = entry.getKey();
-            ConcurrentLinkedQueue<Write> writes = entry.getValue();
-            processWritesForClass(className, writes);
-        });
-
-        modifiedClasses.addAll(writes.keySet());
-        for (String className : writes.keySet()) {
-            classInfoCache.remove(className);
-        }
-
-        writes.clear();
-
-        currentAction = null;
-    }
-
-    private void processReadRequestsForClass(String className, List<ClassRequest> requests) {
-        boolean careAboutConstantPool = true;
-        for (ClassRequest request : requests) {
-            if (request.constantPoolPredicate == null) {
-                careAboutConstantPool = false;
-                break;
-            }
-        }
-
-        if (careAboutConstantPool) {
-            AsmrConstantPool constantPool;
-            try {
-                constantPool = allClasses.get(className).getConstantPool();
-            } catch (IOException e) {
-                throw new UncheckedIOException("Error reading class, did it get deleted?", e);
-            }
-            if (constantPool != null) {
-                boolean shouldReadClass = false;
-                for (ClassRequest request : requests) {
-                    if (request.constantPoolPredicate != null && request.constantPoolPredicate.test(constantPool)) {
-                        shouldReadClass = true;
-                        break;
-                    }
-                }
-                if (!shouldReadClass) {
-                    return;
-                }
-            }
-        }
-
-        AsmrClassNode classNode;
-        try {
-            classNode = allClasses.get(className).get();
-        } catch (IOException e) {
-            throw new UncheckedIOException("Error reading class, did it get deleted?", e);
-        }
-        try {
-            AsmrTreeModificationManager.disableModification();
-            for (ClassRequest request : requests) {
-                request.callback.accept(classNode);
-            }
-        } finally {
-            AsmrTreeModificationManager.enableModification();
-        }
-    }
-
-    private void processWritesForClass(String className, ConcurrentLinkedQueue<Write> writes) {
-        try {
-            ClassProvider classProvider = allClasses.get(className);
-            classProvider.modifiedClass = classProvider.get();
-        } catch (IOException e) {
-            throw new UncheckedIOException("Error reading class, did it get deleted?", e);
-        }
-
-        try {
-            currentWritingClassName.set(className);
-
-            List<Write> sortedWrites = sortWritesAndDetectConflicts(new ArrayList<>(writes));
-
-            Set<AsmrReferenceCapture> allRefCapturesSet = new LinkedHashSet<>();
-            for (Write write : sortedWrites) {
-                allRefCapturesSet.add(write.target);
-                for (AsmrCapture refCaptureInput : write.refCaptureInputs) {
-                    allRefCapturesSet.add((AsmrReferenceCapture) refCaptureInput);
-                }
-            }
-            List<AsmrReferenceCapture> sortedRefCaptures = new ArrayList<>(allRefCapturesSet);
-            sortedRefCaptures.sort(REF_CAPTURE_TREE_ORDER);
-
-            for (Write write : sortedWrites) {
-                currentWrite.set(write);
-                if (write.target instanceof AsmrNodeCapture) {
-                    copyFrom(((AsmrNodeCapture<?>) write.target).resolved(this), write.replacementSupplier.get());
-                } else {
-                    AsmrSliceCapture<?> sliceCapture = (AsmrSliceCapture<?>) write.target;
-                    AsmrAbstractListNode<?, ?> list = sliceCapture.resolvedList(this);
-                    int startIndex = sliceCapture.startIndexInclusive();
-                    int endIndex = sliceCapture.endIndexExclusive();
-                    list.remove(startIndex, endIndex);
-                    AsmrAbstractListNode<?, ?> replacement = (AsmrAbstractListNode<?, ?>) write.replacementSupplier.get();
-                    insertCopy(list, startIndex, replacement);
-
-                    shiftRefCapturesFrom(sortedRefCaptures, sliceCapture, endIndex - startIndex + replacement.size());
-                }
-            }
-        } finally {
-            currentWritingClassName.set(null);
-            currentWrite.set(null);
-        }
-    }
-
-    private void shiftRefCapturesFrom(List<AsmrReferenceCapture> sortedRefCaptures, AsmrSliceCapture<?> start, int shiftBy) {
-        int startVirtualIndex = ((AsmrReferenceSliceCapture<?, ?>) start).startVirtualIndex();
-        int index = Collections.binarySearch(sortedRefCaptures, (AsmrReferenceCapture) start, REF_CAPTURE_TREE_ORDER);
-        assert index >= 0;
-
-        int[] pathPrefixA = ((AsmrReferenceCapture) start).pathPrefix();
-        backwardsLoop:
-        for (int i = index; i >= 0; i--) {
-            AsmrReferenceCapture refCapture = sortedRefCaptures.get(i);
-            int[] pathPrefixB = refCapture.pathPrefix();
-
-            // check if pathPrefixB starts with pathPrefixA
-            if (pathPrefixB.length < pathPrefixA.length) {
-                break backwardsLoop;
-            }
-            for (int j = pathPrefixA.length - 1; j >= 0; j--) {
-                if (pathPrefixB[j] != pathPrefixA[j]) {
-                    break backwardsLoop;
-                }
-            }
-
-            if (refCapture instanceof AsmrReferenceSliceCapture) {
-                AsmrReferenceSliceCapture<?, ?> slice = (AsmrReferenceSliceCapture<?, ?>) refCapture;
-                if (slice.endVirtualIndex() > startVirtualIndex) {
-                    slice.shiftEndVirtualIndex(shiftBy * 2);
-                }
-            }
-        }
-
-        forwardsLoop:
-        for (int i = index + 1; i < sortedRefCaptures.size(); i++) {
-            AsmrReferenceCapture refCapture = sortedRefCaptures.get(i);
-            int[] pathPrefixB = refCapture.pathPrefix();
-
-            // check if pathPrefixB starts with pathPrefixA
-            if (pathPrefixB.length < pathPrefixA.length) {
-                break forwardsLoop;
-            }
-            for (int j = pathPrefixA.length - 1; j >= 0; j--) {
-                if (pathPrefixB[j] != pathPrefixA[j]) {
-                    break forwardsLoop;
-                }
-            }
-
-            if (pathPrefixB.length > pathPrefixA.length) {
-                pathPrefixB[pathPrefixA.length] += shiftBy;
-            } else if (refCapture instanceof AsmrReferenceSliceCapture) {
-                AsmrReferenceSliceCapture<?, ?> slice = (AsmrReferenceSliceCapture<?, ?>) refCapture;
-                if (slice.startVirtualIndex() > startVirtualIndex) {
-                    slice.shiftStartVirtualIndex(shiftBy * 2);
-                }
-                if (slice.endVirtualIndex() > startVirtualIndex) {
-                    slice.shiftEndVirtualIndex(shiftBy * 2);
-                }
-            }
-        }
-    }
-
-    private List<Write> sortWritesAndDetectConflicts(List<Write> writes) {
-        Map<String, List<Write>> writesByTransformer = writes.stream().collect(Collectors.groupingBy(write -> write.transformer.getClass().getName()));
-        Map<Write, LinkedHashSet<Write>> hardDependents = new HashMap<>(this.writeDependents.size());
-        Map<Write, LinkedHashSet<Write>> softDependents = new HashMap<>();
-
-        // transfer transformer write dependents into hard write dependents
-        this.writeDependents.forEach((transformerId, dependents) -> {
-            List<Write> writesThisTransformer = writesByTransformer.get(transformerId);
-            if (writesThisTransformer != null) {
-                for (Write write : writesThisTransformer) {
-                    LinkedHashSet<Write> dependentWrites = new LinkedHashSet<>();
-                    hardDependents.put(write, dependentWrites);
-                    for (String dependent : dependents) {
-                        List<Write> dependentWritesToAdd = writesByTransformer.get(dependent);
-                        if (dependentWritesToAdd != null) {
-                            dependentWrites.addAll(dependentWritesToAdd);
-                        }
-                    }
-                }
-            }
-        });
-
-        class Ref {
-            final AsmrReferenceCapture capture;
-            final Write write;
-            final boolean isInput;
-
-            Ref(AsmrReferenceCapture capture, Write write, boolean isInput) {
-                this.capture = capture;
-                this.write = write;
-                this.isInput = isInput;
-            }
-        }
-
-        List<Ref> refs = new ArrayList<>();
-        for (Write write : writes) {
-            refs.add(new Ref(write.target, write, false));
-            for (AsmrCapture input : write.refCaptureInputs) {
-                refs.add(new Ref((AsmrReferenceCapture) input, write, true));
-            }
-        }
-
-        refs.sort((refA, refB) -> REF_CAPTURE_TREE_ORDER.compare(refA.capture, refB.capture));
-
-        for (int indexA = 0; indexA < refs.size(); indexA++) {
-            Ref refA = refs.get(indexA);
-            int[] pathPrefixA = refA.capture.pathPrefix();
-
-            for (int indexB = indexA + 1; indexB < refs.size(); indexB++) {
-                Ref refB = refs.get(indexB);
-                int[] pathPrefixB = refB.capture.pathPrefix();
-
-                // check that the b prefix starts with the a prefix
-                int bLength = pathPrefixB.length;
-                int aLength = pathPrefixA.length;
-
-                if (bLength < aLength) {
-                    break;
-                }
-
-                for (int i = 0; i < aLength; i++) {
-                    if (pathPrefixB[i] != pathPrefixA[i]) {
-                        break;
-                    }
-                }
-
-                // check b isn't past the end of a
-                AsmrReferenceCapture aCapture = refA.capture;
-                AsmrReferenceCapture bCapture = refB.capture;
-
-                int bStartPathAtEndOfA = (bLength > aLength) ? pathPrefixB[aLength] : bCapture.startVirtualIndex();
-
-                if (bStartPathAtEndOfA >= aCapture.endIndexExclusive()) {
-                    break;
-                }
-
-                // at this point we know that refA collides with refB
-
-                // check if they are from the same write for early exit
-                if (refA.write == refB.write) {
-                    continue;
-                }
-
-                // if they are both inputs they never impose a restriction
-                if (refA.isInput && refB.isInput) {
-                    continue;
-                }
-
-                // check if b is completely contained within a
-                boolean bInsideA = false;
-
-                // check if they are the same capture (no dependency restriction)
-                if (aLength == bLength) {
-                    int startA = refA.capture.startVirtualIndex();
-                    int endA = refA.capture.endVirtualIndex();
-                    int startB = refB.capture.startVirtualIndex();
-                    int endB = refB.capture.endVirtualIndex();
-                    if (startA == startB && endA == endB) {
-                        continue;
-                    }
-
-                    if (startB >= startA && endB <= endA) {
-                        bInsideA = true;
-                    }
-                } else {
-                    // b's path lies in a, so it must be inside
-                    bInsideA = true;
-                }
-
-                if (bInsideA) {
-                    if (refA.isInput) {
-                        softDependents.computeIfAbsent(refB.write, k -> new LinkedHashSet<>()).add(refA.write);
-                    } else {
-                        hardDependents.computeIfAbsent(refB.write, k -> new LinkedHashSet<>()).add(refA.write);
-                    }
-                } else {
-                    // at this point we know they are slices which overlap like this:
-                    // ^---^
-                    //   ^---^
-
-                    // if they are both not inputs, then they conflict - the cyclic dependencies encode this
-                    if (!refB.isInput) {
-                        hardDependents.computeIfAbsent(refA.write, k -> new LinkedHashSet<>()).add(refB.write);
-                    }
-                    if (!refA.isInput) {
-                        hardDependents.computeIfAbsent(refB.write, k -> new LinkedHashSet<>()).add(refA.write);
-                    }
-                }
-            }
-        }
-
-        // promote soft dependencies to hard dependencies where they don't conflict the other way
-        softDependents.forEach((write, dependents) -> {
-            for (Write dependent : dependents) {
-                Set<Write> inverseHardDependents = hardDependents.get(dependent);
-                if (inverseHardDependents == null || !inverseHardDependents.contains(write)) {
-                    hardDependents.computeIfAbsent(write, k -> new LinkedHashSet<>()).add(dependent);
-                }
-            }
-        });
-
-        // topological sort the writes based on dependencies
-        Map<Write, Integer> inDegrees = new HashMap<>();
-        for (Write write : writes) {
-            inDegrees.put(write, 0);
-        }
-        for (Set<Write> dependents : hardDependents.values()) {
-            for (Write dependent : dependents) {
-                inDegrees.merge(dependent, 1, Integer::sum);
-            }
-        }
-
-        Queue<Write> writesToVisit = new LinkedList<>();
-        inDegrees.forEach((write, degrees) -> {
-            if (degrees == 0) {
-                writesToVisit.add(write);
-            }
-        });
-
-        List<Write> sortedWrites = new ArrayList<>(writes.size());
-
-        while (!writesToVisit.isEmpty()) {
-            Write write = writesToVisit.remove();
-            sortedWrites.add(write);
-            Set<Write> dependents = hardDependents.get(write);
-            if (dependents != null) {
-                for (Write dependent : dependents) {
-                    int newInDegree = inDegrees.get(dependent) - 1;
-                    inDegrees.put(dependent, newInDegree);
-                    if (newInDegree == 0) {
-                        writesToVisit.add(dependent);
-                    }
-                }
-            }
-        }
-
-        if (sortedWrites.size() != writes.size()) {
-            // TODO: descriptive error message
-            throw new IllegalStateException("Cyclic explicit or implicit write dependencies");
-        }
-
-        return sortedWrites;
-    }
-
-    @SuppressWarnings("unchecked")
-    private static <T extends AsmrNode<T>> void copyFrom(AsmrNode<?> into, AsmrNode<?> from) {
-        ((T) into).copyFrom((T) from);
-    }
-
-    @SuppressWarnings("unchecked")
-    private static <T extends AsmrNode<T>> void insertCopy(AsmrAbstractListNode<T, ?> into, int index, AsmrAbstractListNode<?, ?> from) {
-        into.insertCopy(index, (AsmrAbstractListNode<? extends T, ?>) from);
+        processorRunner.process();
     }
 
     @HideFromTransformers
@@ -703,7 +218,7 @@ public class AsmrProcessor implements AutoCloseable {
      * Causes the current transformer to run in a round after the other transformer
      */
     public void addRoundDependency(AsmrTransformer self, String otherTransformerId) {
-        checkAction(AsmrTransformerAction.COMPUTE_ROUNDS);
+        processorRunner.checkAction(AsmrProcessorAction.COMPUTE_ROUNDS);
         roundDependents.computeIfAbsent(otherTransformerId, k -> new ArrayList<>()).add(self.getClass().getName());
     }
 
@@ -711,7 +226,7 @@ public class AsmrProcessor implements AutoCloseable {
      * Causes the current transformer to run in a round before the other transformer
      */
     public void addRoundDependent(AsmrTransformer self, String otherTransformerId) {
-        checkAction(AsmrTransformerAction.COMPUTE_ROUNDS);
+        processorRunner.checkAction(AsmrProcessorAction.COMPUTE_ROUNDS);
         roundDependents.computeIfAbsent(self.getClass().getName(), k -> new ArrayList<>()).add(otherTransformerId);
     }
 
@@ -719,7 +234,7 @@ public class AsmrProcessor implements AutoCloseable {
      * Causes the current transformer to write as if after the other transformer
      */
     public void addWriteDependency(AsmrTransformer self, String otherTransformerId) {
-        checkAction(AsmrTransformerAction.COMPUTE_ROUNDS);
+        processorRunner.checkAction(AsmrProcessorAction.COMPUTE_ROUNDS);
         writeDependents.computeIfAbsent(otherTransformerId, k -> new ArrayList<>()).add(self.getClass().getName());
     }
 
@@ -727,7 +242,7 @@ public class AsmrProcessor implements AutoCloseable {
      * Causes the current transformer to write as if before the other transformer
      */
     public void addWriteDependent(AsmrTransformer self, String otherTransformerId) {
-        checkAction(AsmrTransformerAction.COMPUTE_ROUNDS);
+        processorRunner.checkAction(AsmrProcessorAction.COMPUTE_ROUNDS);
         writeDependents.computeIfAbsent(self.getClass().getName(), k -> new ArrayList<>()).add(otherTransformerId);
     }
 
@@ -736,11 +251,11 @@ public class AsmrProcessor implements AutoCloseable {
     }
 
     public void withClass(String name, Consumer<? super AsmrClassNode> callback) {
-        checkAction(AsmrTransformerAction.READ);
+        processorRunner.checkAction(AsmrProcessorAction.READ);
         if (!allClasses.containsKey(name)) {
             throw new IllegalArgumentException("Class not found: " + name);
         }
-        requestedClasses.computeIfAbsent(name, k -> new ConcurrentLinkedQueue<>()).add(new ClassRequest(null, callback));
+        processorRunner.addClassRequest(name, null, callback);
     }
 
     /**
@@ -752,10 +267,10 @@ public class AsmrProcessor implements AutoCloseable {
      */
     @ApiStatus.Experimental // we don't know whether predicating on the constant pool is worth it yet
     public void withClasses(Predicate<? super String> namePredicate, @Nullable Predicate<? super AsmrConstantPool> constantPoolPredicate, Consumer<? super AsmrClassNode> callback) {
-        checkAction(AsmrTransformerAction.READ);
+        processorRunner.checkAction(AsmrProcessorAction.READ);
         for (String className : allClasses.keySet()) {
             if (namePredicate.test(className)) {
-                requestedClasses.computeIfAbsent(className, k -> new ConcurrentLinkedQueue<>()).add(new ClassRequest(constantPoolPredicate, callback));
+                processorRunner.addClassRequest(className, constantPoolPredicate, callback);
             }
         }
     }
@@ -773,7 +288,7 @@ public class AsmrProcessor implements AutoCloseable {
     }
 
     public <T extends AsmrNode<T>> AsmrNodeCapture<T> copyCapture(T node) {
-        checkAction(AsmrTransformerAction.READ);
+        processorRunner.checkAction(AsmrProcessorAction.READ);
         try {
             AsmrTreeModificationManager.enableModification();
             return new AsmrCopyNodeCaputre<>(node);
@@ -783,12 +298,12 @@ public class AsmrProcessor implements AutoCloseable {
     }
 
     public <T extends AsmrNode<T>> AsmrNodeCapture<T> refCapture(T node) {
-        checkAction(AsmrTransformerAction.READ);
+        processorRunner.checkAction(AsmrProcessorAction.READ);
         return new AsmrReferenceNodeCapture<>(node);
     }
 
     public <T extends AsmrNode<T>> AsmrSliceCapture<T> copyCapture(AsmrAbstractListNode<T, ?> list, int startInclusive, int endExclusive) {
-        checkAction(AsmrTransformerAction.READ);
+        processorRunner.checkAction(AsmrProcessorAction.READ);
         if (startInclusive < 0 || endExclusive < startInclusive || endExclusive > list.size()) {
             throw new IndexOutOfBoundsException(String.format("[%d, %d), size %d", startInclusive, endExclusive, list.size()));
         }
@@ -807,12 +322,12 @@ public class AsmrProcessor implements AutoCloseable {
      * {@code list.size() * 2 + 1}. To find the virtual index before node {@code i}, use {@code i * 2 + 1}, to find the
      * virtual index after node {@code i}, use {@code i * 2 + 2}.
      *
-     * @param list              The list to capture in
+     * @param list The list to capture in
      * @param startVirtualIndex The start virtual index (inclusive)
-     * @param endVirtualIndex   The end virtual index (exclusive)
+     * @param endVirtualIndex The end virtual index (exclusive)
      */
     public <T extends AsmrNode<T>> AsmrSliceCapture<T> refCapture(AsmrAbstractListNode<T, ?> list, int startVirtualIndex, int endVirtualIndex) {
-        checkAction(AsmrTransformerAction.READ);
+        processorRunner.checkAction(AsmrProcessorAction.READ);
         if (startVirtualIndex < 0 || endVirtualIndex >= list.size() * 2 + 2 || endVirtualIndex < startVirtualIndex) {
             throw new IllegalArgumentException(String.format("Virtual [%d, %d), size %d", startVirtualIndex, endVirtualIndex, list.size()));
         }
@@ -820,76 +335,64 @@ public class AsmrProcessor implements AutoCloseable {
     }
 
     public <T extends AsmrNode<T>> void addWrite(
-        AsmrTransformer transformer,
-        AsmrNodeCapture<T> target,
-        Supplier<? extends T> replacementSupplier
+            AsmrTransformer transformer,
+            AsmrNodeCapture<T> target,
+            Supplier<? extends T> replacementSupplier
     ) {
         addWrite(transformer, target, replacementSupplier, Collections.emptySet());
     }
 
     public <T extends AsmrNode<T>> void addWrite(
-        AsmrTransformer transformer,
-        AsmrNodeCapture<T> target,
-        Supplier<? extends T> replacementSupplier,
-        Set<AsmrCapture> refCaptureInputs
+            AsmrTransformer transformer,
+            AsmrNodeCapture<T> target,
+            Supplier<? extends T> replacementSupplier,
+            Set<AsmrCapture> refCaptureInputs
     ) {
-        checkAction(AsmrTransformerAction.READ);
+        processorRunner.checkAction(AsmrProcessorAction.READ);
         if (transformer == null) {
             throw new NullPointerException();
         }
         if (!(target instanceof AsmrReferenceCapture)) {
             throw new IllegalArgumentException("Target must be a reference capture, not a copy capture");
         }
-        AsmrReferenceCapture refTarget = (AsmrReferenceCapture) target;
-        Write write = new Write(transformer, refTarget, replacementSupplier, refCaptureInputs);
-        writes.computeIfAbsent(refTarget.className(), k -> new ConcurrentLinkedQueue<>()).add(write);
+        processorRunner.addWrite(transformer, (AsmrReferenceCapture) target, replacementSupplier, refCaptureInputs);
     }
 
     public <T extends AsmrNode<T>, L extends AsmrAbstractListNode<T, L>> void addWrite(
-        AsmrTransformer transformer,
-        AsmrSliceCapture<T> target,
-        Supplier<? extends L> replacementSupplier
+            AsmrTransformer transformer,
+            AsmrSliceCapture<T> target,
+            Supplier<? extends L> replacementSupplier
     ) {
         addWrite(transformer, target, replacementSupplier, Collections.emptySet());
     }
 
     public <T extends AsmrNode<T>, L extends AsmrAbstractListNode<T, L>> void addWrite(
-        AsmrTransformer transformer,
-        AsmrSliceCapture<T> target,
-        Supplier<? extends L> replacementSupplier,
-        Set<AsmrCapture> refCaptureInputs
+            AsmrTransformer transformer,
+            AsmrSliceCapture<T> target,
+            Supplier<? extends L> replacementSupplier,
+            Set<AsmrCapture> refCaptureInputs
     ) {
-        checkAction(AsmrTransformerAction.READ);
+        processorRunner.checkAction(AsmrProcessorAction.READ);
         if (transformer == null) {
             throw new NullPointerException();
         }
         if (!(target instanceof AsmrReferenceCapture)) {
             throw new IllegalArgumentException("Target must be a reference capture, not a copy capture");
         }
-        AsmrReferenceCapture refTarget = (AsmrReferenceCapture) target;
-        Write write = new Write(transformer, refTarget, replacementSupplier, refCaptureInputs);
-        writes.computeIfAbsent(refTarget.className(), k -> new ConcurrentLinkedQueue<>()).add(write);
+        processorRunner.addWrite(transformer, (AsmrReferenceCapture) target, replacementSupplier, refCaptureInputs);
     }
 
     public <T extends AsmrNode<T>> void substitute(T target, AsmrNodeCapture<T> source) {
-        checkAction(AsmrTransformerAction.WRITE);
-        if (source instanceof AsmrReferenceCapture) {
-            if (!currentWrite.get().refCaptureInputs.contains(source)) {
-                throw new IllegalArgumentException("Cannot substitute a ref capture which has not been declared as an input to the current write");
-            }
-        }
+        processorRunner.checkAction(AsmrProcessorAction.WRITE);
+        processorRunner.checkRefCaptureInput(source);
 
         target.copyFrom(source.resolved(this));
     }
 
     @SuppressWarnings("unchecked")
     public <E extends AsmrNode<E>, L extends AsmrAbstractListNode<E, L>> void substitute(L target, int index, AsmrSliceCapture<E> source) {
-        checkAction(AsmrTransformerAction.WRITE);
-        if (source instanceof AsmrReferenceCapture) {
-            if (!currentWrite.get().refCaptureInputs.contains(source)) {
-                throw new IllegalArgumentException("Cannot substitute a ref capture which has not been declared as an input to the current write");
-            }
-        }
+        processorRunner.checkAction(AsmrProcessorAction.WRITE);
+        processorRunner.checkRefCaptureInput(source);
 
         L resolvedList = (L) source.resolvedList(this);
         int startIndex = source.startIndexInclusive();
@@ -909,6 +412,30 @@ public class AsmrProcessor implements AutoCloseable {
     }
 
     // ===== PRIVATE UTILITIES ===== //
+
+    List<AsmrTransformer> transformers() {
+        return transformers;
+    }
+
+    Map<String, ClassProvider> allClasses() {
+        return allClasses;
+    }
+
+    Map<String, List<String>> roundDependents() {
+        return roundDependents;
+    }
+
+    Map<String, List<String>> writeDependents() {
+        return writeDependents;
+    }
+
+    Set<String> modifiedClasses() {
+        return modifiedClasses;
+    }
+
+    ConcurrentHashMap<String, ClassInfo> classInfoCache() {
+        return classInfoCache;
+    }
 
     private ClassInfo getClassInfo(String type) {
         return classInfoCache.computeIfAbsent(type, type1 -> {
@@ -931,25 +458,7 @@ public class AsmrProcessor implements AutoCloseable {
             }
 
             ClassReader reader = new ClassReader(bytecode);
-
-            class ClassInfoVisitor extends ClassVisitor {
-                String superName;
-                boolean isInterface;
-
-                ClassInfoVisitor() {
-                    super(ASM_VERSION);
-                }
-
-                @Override
-                public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
-                    this.superName = superName;
-                    this.isInterface = (access & Opcodes.ACC_INTERFACE) != 0;
-                }
-            }
-
-            ClassInfoVisitor cv = new ClassInfoVisitor();
-            reader.accept(cv, ClassReader.SKIP_CODE);
-            return new ClassInfo(cv.superName, cv.isInterface);
+            return new ClassInfo(reader.getSuperName(), (reader.getAccess() & Opcodes.ACC_INTERFACE) != 0);
         });
     }
 
@@ -996,20 +505,11 @@ public class AsmrProcessor implements AutoCloseable {
     }
 
     @ApiStatus.Internal
-    public void checkAction(AsmrTransformerAction expectedAction) {
-        if (currentAction != expectedAction) {
-            throw new IllegalStateException("This operation is only allowed in a " + expectedAction + " transformer action");
-        }
-    }
-
-    @ApiStatus.Internal
     public void checkWritingClass(String className) {
-        if (!className.equals(currentWritingClassName.get())) {
-            throw new IllegalStateException("This operation is only allowed while writing class '" + className + "' but was writing '" + currentWritingClassName.get() + "'");
-        }
+        processorRunner.checkWritingClass(className);
     }
 
-    private static class ClassProvider {
+    static class ClassProvider {
         private SoftReference<AsmrConstantPool> cachedConstantPool = null;
         private SoftReference<AsmrClassNode> cachedClass = null;
         public AsmrClassNode modifiedClass = null;
@@ -1019,9 +519,7 @@ public class AsmrProcessor implements AutoCloseable {
             this.inputStreamSupplier = inputStreamSupplier;
         }
 
-        /**
-         * Warning: NOT thread safe!
-         */
+        /** Warning: NOT thread safe! */
         public AsmrClassNode get() throws IOException {
             if (modifiedClass != null) {
                 return modifiedClass;
@@ -1049,9 +547,7 @@ public class AsmrProcessor implements AutoCloseable {
             return val;
         }
 
-        /**
-         * Warning: NOT thread safe!
-         */
+        /** Warning: NOT thread safe! */
         @Nullable
         public AsmrConstantPool getConstantPool() throws IOException {
             if (modifiedClass != null) {
@@ -1076,31 +572,6 @@ public class AsmrProcessor implements AutoCloseable {
     @FunctionalInterface
     private interface InputStreamSupplier {
         InputStream get() throws IOException;
-    }
-
-    private static class ClassRequest {
-        @Nullable
-        public final Predicate<? super AsmrConstantPool> constantPoolPredicate;
-        public final Consumer<? super AsmrClassNode> callback;
-
-        public ClassRequest(@Nullable Predicate<? super AsmrConstantPool> constantPoolPredicate, Consumer<? super AsmrClassNode> callback) {
-            this.constantPoolPredicate = constantPoolPredicate;
-            this.callback = callback;
-        }
-    }
-
-    private static class Write {
-        public final AsmrTransformer transformer;
-        public final AsmrReferenceCapture target;
-        public final Set<AsmrCapture> refCaptureInputs;
-        public final Supplier<? extends AsmrNode<?>> replacementSupplier;
-
-        public Write(AsmrTransformer transformer, AsmrReferenceCapture target, Supplier<? extends AsmrNode<?>> replacementSupplier, Set<AsmrCapture> refCaptureInputs) {
-            this.transformer = transformer;
-            this.target = target;
-            this.replacementSupplier = replacementSupplier;
-            this.refCaptureInputs = refCaptureInputs;
-        }
     }
 
     private static class ClassInfo {

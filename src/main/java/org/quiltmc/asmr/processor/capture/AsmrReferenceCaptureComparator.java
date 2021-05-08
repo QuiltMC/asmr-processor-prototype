@@ -26,9 +26,12 @@ public class AsmrReferenceCaptureComparator implements Comparator<AsmrReferenceC
             int bStartIndex = captureB.startIndexInclusive();
             return bStartIndex <= pathA[i] ? -1 : 1;
         } else {
-            // pathA and pathB both end at the same time, compare the start indexes
+            // pathA and pathB both end at the same time, compare the start indexes, if tied sort by last index
             int aStartVirtualIndex = captureA.startVirtualIndex();
             int bStartVirtualIndex = captureB.startVirtualIndex();
+            if(aStartVirtualIndex == bStartVirtualIndex){
+                return Integer.compare(captureA.endVirtualIndex(), bStartVirtualIndex);
+            }
             return Integer.compare(aStartVirtualIndex, bStartVirtualIndex);
         }
     }

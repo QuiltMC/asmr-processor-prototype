@@ -1,12 +1,11 @@
 package org.quiltmc.asmr.processor.test;
 
 import org.junit.jupiter.api.Assertions;
-import org.quiltmc.asmr.processor.AsmrClassWriter;
+import org.quiltmc.asmr.util.AsmrClassWriter;
 import org.quiltmc.asmr.processor.AsmrProcessor;
 import org.quiltmc.asmr.processor.AsmrTransformer;
-import org.quiltmc.asmr.processor.tree.member.AsmrClassNode;
-import org.quiltmc.asmr.processor.util.Pair;
-import org.quiltmc.asmr.processor.verifier.FridgeVerifier;
+import org.quiltmc.asmr.tree.member.AsmrClassNode;
+import org.quiltmc.asmr.util.Pair;
 
 import static org.junit.jupiter.api.Assertions.*;
 

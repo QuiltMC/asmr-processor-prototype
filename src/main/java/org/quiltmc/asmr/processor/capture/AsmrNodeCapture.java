@@ -3,7 +3,7 @@ package org.quiltmc.asmr.processor.capture;
 import org.jetbrains.annotations.ApiStatus;
 import org.quiltmc.asmr.processor.AsmrProcessor;
 import org.quiltmc.asmr.processor.annotation.AllowLambdaCapture;
-import org.quiltmc.asmr.processor.tree.AsmrNode;
+import org.quiltmc.asmr.tree.AsmrNode;
 
 @AllowLambdaCapture
 @ApiStatus.NonExtendable
