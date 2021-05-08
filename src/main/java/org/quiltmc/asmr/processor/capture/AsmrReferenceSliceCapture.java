@@ -33,10 +33,12 @@ public class AsmrReferenceSliceCapture<T extends AsmrNode<T>, L extends AsmrAbst
         return listCapture.resolved(processor);
     }
 
+    @Override
     public int startVirtualIndex() {
         return startVirtualIndex;
     }
 
+    @Override
     public int endVirtualIndex() {
         return endVirtualIndex;
     }

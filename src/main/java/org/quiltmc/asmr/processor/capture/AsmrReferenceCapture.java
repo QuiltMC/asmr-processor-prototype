@@ -6,4 +6,9 @@ import org.jetbrains.annotations.ApiStatus;
 public interface AsmrReferenceCapture {
     String className();
     int[] pathPrefix();
+
+    int startVirtualIndex();
+    int endVirtualIndex();
+    int startIndexInclusive();
+    int endIndexExclusive();
 }
