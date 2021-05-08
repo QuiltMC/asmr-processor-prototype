@@ -17,6 +17,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -563,11 +564,11 @@ final class AsmrProcessorRunner {
         }
 
         // promote soft dependencies to hard dependencies where they don't conflict the other way
-        // TODO: this doesn't detect transitive hard dependencies
         softDependents.forEach((write, dependents) -> {
+            Set<Write> visited = new HashSet<>();
             for (Write dependent : dependents) {
-                Set<Write> inverseHardDependents = hardDependents.get(dependent);
-                if (inverseHardDependents == null || !inverseHardDependents.contains(write)) {
+                // transitive dependency depth is expected to be shallow, so a simple recursive solution suffices for now
+                if (isTransitivelyDependent(dependent, write, hardDependents, visited)) {
                     hardDependents.computeIfAbsent(write, k -> new LinkedHashSet<>()).add(dependent);
                 }
             }
@@ -614,6 +615,27 @@ final class AsmrProcessorRunner {
         }
 
         return sortedWrites;
+    }
+
+    private static boolean isTransitivelyDependent(Write from, Write to, Map<Write, LinkedHashSet<Write>> dependents, Set<Write> visited) {
+        LinkedHashSet<Write> depOnFrom = dependents.get(from);
+        if (depOnFrom == null) {
+            return false;
+        }
+        if (depOnFrom.contains(to)) {
+            return true;
+        }
+        for (Write intermediate : depOnFrom) {
+            if (!visited.add(to)) {
+                return false; // cycle, will be detected later
+            }
+            if (isTransitivelyDependent(intermediate, to, dependents, visited)) {
+                return true;
+            }
+            visited.remove(to);
+        }
+
+        return false;
     }
 
     @SuppressWarnings("unchecked")
