@@ -18,6 +18,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -158,7 +159,7 @@ final class AsmrProcessorRunner {
             return Collections.emptyList();
         }
 
-        Map<String, Integer> inDegrees = new HashMap<>();
+        Map<String, Integer> inDegrees = new LinkedHashMap<>();
         dependentsGraph.forEach((parent, dependents) -> {
             for (String dependent : dependents) {
                 inDegrees.merge(dependent, 1, Integer::sum);
@@ -575,7 +576,7 @@ final class AsmrProcessorRunner {
         });
 
         // topological sort the writes based on dependencies
-        Map<Write, Integer> inDegrees = new HashMap<>();
+        Map<Write, Integer> inDegrees = new LinkedHashMap<>();
         for (Write write : writes) {
             inDegrees.put(write, 0);
         }

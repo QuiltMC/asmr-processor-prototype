@@ -60,7 +60,7 @@ public final class AsmrProcessor implements AutoCloseable {
     private final List<JarFile> jarFiles = new ArrayList<>();
 
     private final List<AsmrTransformer> transformers = new ArrayList<>();
-    private final TreeMap<String, ClassProvider> allClasses = new TreeMap<>();
+    private final Map<String, ClassProvider> allClasses = new HashMap<>();
     private final TreeMap<String, String> config = new TreeMap<>();
     List<String> phases = Arrays.asList(AsmrStandardPhases.READ_INITIAL, AsmrStandardPhases.READ_FINAL); // TODO: discuss a more comprehensive list
 
@@ -417,7 +417,7 @@ public final class AsmrProcessor implements AutoCloseable {
         return transformers;
     }
 
-    TreeMap<String, ClassProvider> allClasses() {
+    Map<String, ClassProvider> allClasses() {
         return allClasses;
     }
 
