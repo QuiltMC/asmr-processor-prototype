@@ -452,11 +452,23 @@ final class AsmrProcessorRunner {
                 AsmrReferenceCapture aCapture = refA.capture;
                 AsmrReferenceCapture bCapture = refB.capture;
 
-                int bStartPathAtEndOfA = (bLength > aLength) ? pathPrefixB[aLength] : bCapture.startIndexInclusive();
+                if (bLength > aLength) {
+                    if (pathPrefixB[aLength] >= aCapture.endIndexExclusive()) {
+                        break bLoop;
+                    }
+                } else { // if (pathPrefixA.length == pathPrefixB.length)
+                    if (bCapture.startVirtualIndex() >= aCapture.endVirtualIndex()) {
+                        break bLoop;
+                    }
 
-                if (bStartPathAtEndOfA >= aCapture.endIndexExclusive()) {
-                    break bLoop;
+                    // special case: check if b is an empty slice on the edge of a, then it's not colliding
+                    if (bCapture.startVirtualIndex() == aCapture.endVirtualIndex()
+                        && (aCapture.startVirtualIndex() == bCapture.startVirtualIndex() || aCapture.endVirtualIndex() == bCapture.startVirtualIndex())) {
+                        continue bLoop;
+                    }
                 }
+
+
 
                 // at this point we know that refA collides with refB
 
