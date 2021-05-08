@@ -487,7 +487,7 @@ final class AsmrProcessorRunner {
                         bInsideA = true;
                     }
                 } else {
-                    // b's path lies in a, so it must be inside
+                    // b's path starts with a, so it must be inside
                     bInsideA = true;
                 }
 
