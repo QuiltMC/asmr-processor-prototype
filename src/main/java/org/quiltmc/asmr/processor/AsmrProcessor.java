@@ -62,7 +62,7 @@ public final class AsmrProcessor implements AutoCloseable {
     private final List<AsmrTransformer> transformers = new ArrayList<>();
     private final Map<String, ClassProvider> allClasses = new HashMap<>();
     private final TreeMap<String, String> config = new TreeMap<>();
-    List<String> phases = Arrays.asList(AsmrStandardPhases.READ_INITIAL, AsmrStandardPhases.READ_FINAL); // TODO: discuss a more comprehensive list
+    private List<String> phases = Arrays.asList(AsmrStandardPhases.READ_INITIAL, AsmrStandardPhases.READ_FINAL); // TODO: discuss a more comprehensive list
 
     private final AsmrProcessorRunner processorRunner = new AsmrProcessorRunner(this);
     private final Map<String, List<String>> roundDependents = new HashMap<>();
@@ -203,7 +203,7 @@ public final class AsmrProcessor implements AutoCloseable {
                 return classProvider.get();
             }
         } catch (IOException e) {
-            throw new UncheckedIOException("Error reading class, did it get deleted?", e);
+            throw new UncheckedIOException("Error reading class, did it get deleted on disk?", e);
         }
     }
 
@@ -299,7 +299,7 @@ public final class AsmrProcessor implements AutoCloseable {
 
     public <T extends AsmrNode<T>> AsmrNodeCapture<T> refCapture(T node) {
         processorRunner.checkAction(AsmrProcessorAction.READ);
-        return new AsmrReferenceNodeCapture<>(node);
+        return new AsmrReferenceNodeCapture<>(this, node);
     }
 
     public <T extends AsmrNode<T>> AsmrSliceCapture<T> copyCapture(AsmrAbstractListNode<T, ?> list, int startInclusive, int endExclusive) {
@@ -331,7 +331,7 @@ public final class AsmrProcessor implements AutoCloseable {
         if (startVirtualIndex < 0 || endVirtualIndex >= list.size() * 2 + 2 || endVirtualIndex < startVirtualIndex) {
             throw new IllegalArgumentException(String.format("Virtual [%d, %d), size %d", startVirtualIndex, endVirtualIndex, list.size()));
         }
-        return new AsmrReferenceSliceCapture<>(list, startVirtualIndex, endVirtualIndex);
+        return new AsmrReferenceSliceCapture<>(this, list, startVirtualIndex, endVirtualIndex);
     }
 
     public <T extends AsmrNode<T>> void addWrite(
@@ -382,6 +382,32 @@ public final class AsmrProcessor implements AutoCloseable {
         processorRunner.addWrite(transformer, (AsmrReferenceCapture) target, replacementSupplier, refCaptureInputs);
     }
 
+    public void createClass(
+            AsmrTransformer transformer,
+            String className,
+            Supplier<AsmrClassNode> classNodeSupplier
+    ) {
+        processorRunner.checkAction(AsmrProcessorAction.READ);
+        if (transformer == null) {
+            throw new NullPointerException();
+        }
+        if (allClasses.containsKey(className)) {
+            throw new IllegalArgumentException("Cannot create class '" + className + "' because it already exists");
+        }
+        processorRunner.createClass(transformer, className, classNodeSupplier);
+    }
+
+    public void deleteClass(AsmrTransformer transformer, String className) {
+        processorRunner.checkAction(AsmrProcessorAction.READ);
+        if (transformer == null) {
+            throw new NullPointerException();
+        }
+        if (!allClasses.containsKey(className)) {
+            throw new IllegalArgumentException("Cannot delete class '" + className + "' because it doesn't exist");
+        }
+        processorRunner.deleteClass(transformer, className);
+    }
+
     public <T extends AsmrNode<T>> void substitute(T target, AsmrNodeCapture<T> source) {
         processorRunner.checkAction(AsmrProcessorAction.WRITE);
         processorRunner.checkRefCaptureInput(source);
@@ -419,6 +445,10 @@ public final class AsmrProcessor implements AutoCloseable {
 
     Map<String, ClassProvider> allClasses() {
         return allClasses;
+    }
+
+    List<String> phases() {
+        return phases;
     }
 
     Map<String, List<String>> roundDependents() {
@@ -510,12 +540,16 @@ public final class AsmrProcessor implements AutoCloseable {
     }
 
     static class ClassProvider {
+        @Nullable
         private SoftReference<AsmrConstantPool> cachedConstantPool = null;
+        @Nullable
         private SoftReference<AsmrClassNode> cachedClass = null;
+        @Nullable
         public AsmrClassNode modifiedClass = null;
-        private final InputStreamSupplier inputStreamSupplier;
+        @Nullable
+        private final InputStreamSupplier inputStreamSupplier; // null for transformed-created classes
 
-        public ClassProvider(InputStreamSupplier inputStreamSupplier) {
+        public ClassProvider(@Nullable InputStreamSupplier inputStreamSupplier) {
             this.inputStreamSupplier = inputStreamSupplier;
         }
 
@@ -531,6 +565,8 @@ public final class AsmrProcessor implements AutoCloseable {
                     return val;
                 }
             }
+
+            assert inputStreamSupplier != null : "inputStreamSupplier and modifiedClass should not be null at the same time";
             InputStream inputStream = inputStreamSupplier.get();
             ClassReader classReader = new ClassReader(inputStream);
             AsmrClassNode val = new AsmrClassNode();

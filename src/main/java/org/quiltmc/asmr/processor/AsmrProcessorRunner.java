@@ -67,6 +67,9 @@ final class AsmrProcessorRunner {
 
     private ConcurrentHashMap<String, ConcurrentLinkedQueue<ClassRequest>> requestedClasses = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, ConcurrentLinkedQueue<Write>> writes = new ConcurrentHashMap<>();
+    private final Set<String> classesToCreate = ConcurrentHashMap.newKeySet();
+    private final ConcurrentHashMap<String, Set<AsmrTransformer>> classesToDelete = new ConcurrentHashMap<>();
+    private final ConcurrentLinkedQueue<AsmrClassNode> primedClasses = new ConcurrentLinkedQueue<>();
     private final ThreadLocal<String> currentWritingClassName = new ThreadLocal<>();
     private final ThreadLocal<Write> currentWrite = new ThreadLocal<>();
     private AsmrProcessorAction currentAction = null;
@@ -80,7 +83,19 @@ final class AsmrProcessorRunner {
     }
 
     <T extends AsmrNode<T>> void addWrite(AsmrTransformer transformer, AsmrReferenceCapture target, Supplier<? extends T> replacementSupplier, Set<AsmrCapture> refCaptureInputs) {
+        if (target == null) {
+            throw new NullPointerException();
+        }
         writes.computeIfAbsent(target.className(), k -> new ConcurrentLinkedQueue<>()).add(new Write(transformer, target, replacementSupplier, refCaptureInputs));
+    }
+
+    void createClass(AsmrTransformer transformer, String className, Supplier<AsmrClassNode> classNodeSupplier) {
+        writes.computeIfAbsent(className, k -> new ConcurrentLinkedQueue<>()).add(new Write(transformer, null, classNodeSupplier, Collections.emptySet()));
+        classesToCreate.add(className);
+    }
+
+    void deleteClass(AsmrTransformer transformer, String className) {
+        classesToDelete.computeIfAbsent(className, k -> ConcurrentHashMap.newKeySet()).add(transformer);
     }
 
     void checkWritingClass(String className) {
@@ -117,9 +132,9 @@ final class AsmrProcessorRunner {
 
     private List<List<AsmrTransformer>> computeRounds() {
         Map<String, Integer> phaseIndexes = new HashMap<>();
-        List<List<AsmrTransformer>> phases = new ArrayList<>(processor.phases.size());
-        for (int i = 0; i < processor.phases.size(); i++) {
-            phaseIndexes.put(processor.phases.get(i), i);
+        List<List<AsmrTransformer>> phases = new ArrayList<>(processor.phases().size());
+        for (int i = 0; i < processor.phases().size(); i++) {
+            phaseIndexes.put(processor.phases().get(i), i);
             phases.add(new ArrayList<>());
         }
         for (AsmrTransformer transformer : processor.transformers()) {
@@ -253,8 +268,23 @@ final class AsmrProcessorRunner {
         for (String className : writes.keySet()) {
             processor.classInfoCache().remove(className);
         }
-
         writes.clear();
+
+        for (AsmrClassNode primedClass : primedClasses) {
+            String className = primedClass.name().value();
+            AsmrProcessor.ClassProvider classProvider = new AsmrProcessor.ClassProvider(null);
+            classProvider.modifiedClass = primedClass;
+            processor.allClasses().put(className, classProvider);
+            processor.modifiedClasses().add(className);
+        }
+        primedClasses.clear();
+
+        for (String className : classesToDelete.keySet()) {
+            processor.allClasses().remove(className);
+            processor.classInfoCache().remove(className);
+            processor.modifiedClasses().add(className);
+        }
+        classesToDelete.clear();
 
         currentAction = null;
     }
@@ -273,7 +303,7 @@ final class AsmrProcessorRunner {
             try {
                 constantPool = processor.allClasses().get(className).getConstantPool();
             } catch (IOException e) {
-                throw new UncheckedIOException("Error reading class, did it get deleted?", e);
+                throw new UncheckedIOException("Error reading class, did it get deleted on disk?", e);
             }
             if (constantPool != null) {
                 boolean shouldReadClass = false;
@@ -293,7 +323,7 @@ final class AsmrProcessorRunner {
         try {
             classNode = processor.allClasses().get(className).get();
         } catch (IOException e) {
-            throw new UncheckedIOException("Error reading class, did it get deleted?", e);
+            throw new UncheckedIOException("Error reading class, did it get deleted on disk?", e);
         }
         try {
             AsmrTreeModificationManager.disableModification();
@@ -306,42 +336,69 @@ final class AsmrProcessorRunner {
     }
 
     private void processWritesForClass(String className, ConcurrentLinkedQueue<Write> writes) {
-        try {
-            AsmrProcessor.ClassProvider classProvider = processor.allClasses().get(className);
-            classProvider.modifiedClass = classProvider.get();
-        } catch (IOException e) {
-            throw new UncheckedIOException("Error reading class, did it get deleted?", e);
+        boolean creatingClass = classesToCreate.contains(className);
+
+        if (!creatingClass) {
+            try {
+                AsmrProcessor.ClassProvider classProvider = processor.allClasses().get(className);
+                classProvider.modifiedClass = classProvider.get();
+            } catch (IOException e) {
+                throw new UncheckedIOException("Error reading class, did it get deleted on disk?", e);
+            }
         }
 
         try {
             currentWritingClassName.set(className);
 
-            List<Write> sortedWrites = sortWritesAndDetectConflicts(new ArrayList<>(writes));
-
-            Set<AsmrReferenceCapture> allRefCapturesSet = new LinkedHashSet<>();
-            for (Write write : sortedWrites) {
-                allRefCapturesSet.add(write.target);
-                for (AsmrCapture refCaptureInput : write.refCaptureInputs) {
-                    allRefCapturesSet.add((AsmrReferenceCapture) refCaptureInput);
+            if (creatingClass) {
+                if (writes.size() != 1) {
+                    String transformers = writes.stream().map(write -> write.transformer.getClass().getName()).collect(Collectors.joining(", "));
+                    String message = String.format("More than one transformer tried to create a class with the same name '%s'. Transformers were: %s", className, transformers);
+                    throw new IllegalStateException(message);
                 }
-            }
-            List<AsmrReferenceCapture> sortedRefCaptures = new ArrayList<>(allRefCapturesSet);
-            sortedRefCaptures.sort(REF_CAPTURE_TREE_ORDER);
+                AsmrClassNode classNode = (AsmrClassNode) writes.peek().replacementSupplier.get();
+                if (!classNode.name().value().equals(className)) {
+                    throw new IllegalStateException("Created class '" + className + "' did not have the same name as declared");
+                }
+                primedClasses.add(classNode);
+            } else {
+                List<Write> sortedWrites = sortWritesAndDetectConflicts(new ArrayList<>(writes));
 
-            for (Write write : sortedWrites) {
-                currentWrite.set(write);
-                if (write.target instanceof AsmrNodeCapture) {
-                    copyFrom(((AsmrNodeCapture<?>) write.target).resolved(processor), write.replacementSupplier.get());
-                } else {
-                    AsmrSliceCapture<?> sliceCapture = (AsmrSliceCapture<?>) write.target;
-                    AsmrAbstractListNode<?, ?> list = sliceCapture.resolvedList(processor);
-                    int startIndex = sliceCapture.startIndexInclusive();
-                    int endIndex = sliceCapture.endIndexExclusive();
-                    list.remove(startIndex, endIndex);
-                    AsmrAbstractListNode<?, ?> replacement = (AsmrAbstractListNode<?, ?>) write.replacementSupplier.get();
-                    insertCopy(list, startIndex, replacement);
+                Set<AsmrReferenceCapture> allRefCapturesSet = new LinkedHashSet<>();
+                for (Write write : sortedWrites) {
+                    if (write.target != null) {
+                        allRefCapturesSet.add(write.target);
+                    }
+                    for (AsmrCapture refCaptureInput : write.refCaptureInputs) {
+                        allRefCapturesSet.add((AsmrReferenceCapture) refCaptureInput);
+                    }
+                }
+                List<AsmrReferenceCapture> sortedRefCaptures = new ArrayList<>(allRefCapturesSet);
+                sortedRefCaptures.sort(REF_CAPTURE_TREE_ORDER);
 
-                    shiftRefCapturesFrom(sortedRefCaptures, sliceCapture, endIndex - startIndex + replacement.size());
+                for (Write write : sortedWrites) {
+                    currentWrite.set(write);
+                    assert write.target != null;
+                    if (write.target instanceof AsmrNodeCapture) {
+                        copyFrom(((AsmrNodeCapture<?>) write.target).resolved(processor), write.replacementSupplier.get());
+                    } else {
+                        AsmrSliceCapture<?> sliceCapture = (AsmrSliceCapture<?>) write.target;
+                        AsmrAbstractListNode<?, ?> list = sliceCapture.resolvedList(processor);
+                        int startIndex = sliceCapture.startIndexInclusive();
+                        int endIndex = sliceCapture.endIndexExclusive();
+                        list.remove(startIndex, endIndex);
+                        AsmrAbstractListNode<?, ?> replacement = (AsmrAbstractListNode<?, ?>) write.replacementSupplier.get();
+                        insertCopy(list, startIndex, replacement);
+
+                        shiftRefCapturesFrom(sortedRefCaptures, sliceCapture, endIndex - startIndex + replacement.size());
+                    }
+                }
+
+                AsmrClassNode classNode = processor.findClassImmediately(className);
+                assert classNode != null;
+                if (!classNode.name().value().equals(className)) {
+                    String message = String.format("Name of class '%s' was changed to '%s'. To rename classes, delete and recreate them", className, classNode.name().value());
+                    throw new IllegalStateException(message);
                 }
             }
         } finally {
@@ -444,7 +501,9 @@ final class AsmrProcessorRunner {
 
         List<Ref> refs = new ArrayList<>();
         for (Write write : writes) {
-            refs.add(new Ref(write.target, write, false));
+            if (write.target != null) {
+                refs.add(new Ref(write.target, write, false));
+            }
             for (AsmrCapture input : write.refCaptureInputs) {
                 refs.add(new Ref((AsmrReferenceCapture) input, write, true));
             }
@@ -662,11 +721,12 @@ final class AsmrProcessorRunner {
 
     private static class Write {
         public final AsmrTransformer transformer;
-        public final AsmrReferenceCapture target;
+        @Nullable
+        public final AsmrReferenceCapture target; // if null, we're creating a new class
         public final Set<AsmrCapture> refCaptureInputs;
         public final Supplier<? extends AsmrNode<?>> replacementSupplier;
 
-        public Write(AsmrTransformer transformer, AsmrReferenceCapture target, Supplier<? extends AsmrNode<?>> replacementSupplier, Set<AsmrCapture> refCaptureInputs) {
+        public Write(AsmrTransformer transformer, @Nullable AsmrReferenceCapture target, Supplier<? extends AsmrNode<?>> replacementSupplier, Set<AsmrCapture> refCaptureInputs) {
             this.transformer = transformer;
             this.target = target;
             this.replacementSupplier = replacementSupplier;

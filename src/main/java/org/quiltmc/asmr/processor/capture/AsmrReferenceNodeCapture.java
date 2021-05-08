@@ -17,7 +17,7 @@ public class AsmrReferenceNodeCapture<T extends AsmrNode<T>> implements AsmrNode
     private T cachedResolved = null;
 
     @SuppressWarnings("unchecked")
-    public AsmrReferenceNodeCapture(T node) {
+    public AsmrReferenceNodeCapture(AsmrProcessor processor, T node) {
         this.type = (Class<? extends T>) node.getClass();
 
         List<Integer> reversedIndexes = new ArrayList<>();
@@ -36,6 +36,9 @@ public class AsmrReferenceNodeCapture<T extends AsmrNode<T>> implements AsmrNode
             throw new IllegalArgumentException("Cannot reference capture a node that does not descend from a class node");
         }
         this.className = ((AsmrClassNode) n).name().value();
+        if (processor.findClassImmediately(className) != n) {
+            throw new IllegalArgumentException("Cannot reference capture a node in a class that doesn't exist");
+        }
     }
 
     @Override

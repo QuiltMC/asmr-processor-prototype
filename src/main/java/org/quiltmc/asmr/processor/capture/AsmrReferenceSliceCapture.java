@@ -12,8 +12,8 @@ public class AsmrReferenceSliceCapture<T extends AsmrNode<T>, L extends AsmrAbst
     private int endVirtualIndex;
 
     @SuppressWarnings("unchecked")
-    public AsmrReferenceSliceCapture(AsmrAbstractListNode<T, ?> list, int startVirtualIndex, int endVirtualIndex) {
-        this.listCapture = new AsmrReferenceNodeCapture<>((L) list);
+    public AsmrReferenceSliceCapture(AsmrProcessor processor, AsmrAbstractListNode<T, ?> list, int startVirtualIndex, int endVirtualIndex) {
+        this.listCapture = new AsmrReferenceNodeCapture<>(processor, (L) list);
         this.startVirtualIndex = startVirtualIndex;
         this.endVirtualIndex = endVirtualIndex;
     }
