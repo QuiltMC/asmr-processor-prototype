@@ -1,8 +1,14 @@
 package org.quiltmc.asmr.processor.capture;
 
+import org.jetbrains.annotations.ApiStatus;
+
 import java.util.Comparator;
 
-public class AsmrReferenceCaptureComparator implements Comparator<AsmrReferenceCapture> {
+/**
+ * Compares the {@code [...pathPrefix, startIndex]} of each capture by lexicographic order.
+ */
+@ApiStatus.Internal
+public class AsmrRefCaptureStartComparator implements Comparator<AsmrReferenceCapture> {
     @Override
     public int compare(AsmrReferenceCapture captureA, AsmrReferenceCapture captureB) {
         int[] pathA = captureA.pathPrefix();

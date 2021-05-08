@@ -4,7 +4,7 @@ import org.jetbrains.annotations.Nullable;
 import org.quiltmc.asmr.processor.capture.AsmrCapture;
 import org.quiltmc.asmr.processor.capture.AsmrNodeCapture;
 import org.quiltmc.asmr.processor.capture.AsmrReferenceCapture;
-import org.quiltmc.asmr.processor.capture.AsmrReferenceCaptureComparator;
+import org.quiltmc.asmr.processor.capture.AsmrRefCaptureStartComparator;
 import org.quiltmc.asmr.processor.capture.AsmrReferenceSliceCapture;
 import org.quiltmc.asmr.processor.capture.AsmrSliceCapture;
 import org.quiltmc.asmr.tree.AsmrAbstractListNode;
@@ -34,10 +34,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 final class AsmrProcessorRunner {
-    /**
-     * compares the {@code [...pathPrefix, startIndex]} of each capture by lexicographic order.
-     */
-    private static final Comparator<AsmrReferenceCapture> REF_CAPTURE_TREE_ORDER = new AsmrReferenceCaptureComparator();
+    private static final Comparator<AsmrReferenceCapture> REF_CAPTURE_TREE_ORDER = new AsmrRefCaptureStartComparator();
 
     private final AsmrProcessor processor;
 
