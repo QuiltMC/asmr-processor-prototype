@@ -452,7 +452,7 @@ final class AsmrProcessorRunner {
                 AsmrReferenceCapture aCapture = refA.capture;
                 AsmrReferenceCapture bCapture = refB.capture;
 
-                int bStartPathAtEndOfA = (bLength > aLength) ? pathPrefixB[aLength] : bCapture.startVirtualIndex();
+                int bStartPathAtEndOfA = (bLength > aLength) ? pathPrefixB[aLength] : bCapture.startIndexInclusive();
 
                 if (bStartPathAtEndOfA >= aCapture.endIndexExclusive()) {
                     break bLoop;

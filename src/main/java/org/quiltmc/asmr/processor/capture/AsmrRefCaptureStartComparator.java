@@ -24,15 +24,15 @@ public class AsmrRefCaptureStartComparator implements Comparator<AsmrReferenceCa
         }
 
         if (pathA.length < pathB.length) {
-            // pathA ended but captureA is a slice, so need to check the slice index
+            // pathA ended, so we need to check if b lies after the start index of a
             int aStartIndex = captureA.startIndexInclusive();
             return aStartIndex <= pathB[i] ? -1 : 1;
         } else if (pathB.length < pathA.length) {
-            // pathB ended but captureB is a slice, so need to check the slice index
+            // pathB ended, so we need to check if a lies after the start index of b
             int bStartIndex = captureB.startIndexInclusive();
             return bStartIndex <= pathA[i] ? -1 : 1;
         } else { // if (pathA.length == pathB.length)
-            // pathA and pathB both end at the same time, compare the start indexes
+            // pathA and pathB both end at the same time, compare their start indexes
             int aStartVirtualIndex = captureA.startVirtualIndex();
             int bStartVirtualIndex = captureB.startVirtualIndex();
             return Integer.compare(aStartVirtualIndex, bStartVirtualIndex);
