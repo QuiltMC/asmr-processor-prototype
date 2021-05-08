@@ -3,7 +3,6 @@ package org.quiltmc.asmr.processor;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.ClassReader;
-import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.Opcodes;
 import org.quiltmc.asmr.processor.annotation.AllowLambdaCapture;
 import org.quiltmc.asmr.processor.annotation.HideFromTransformers;
@@ -459,25 +458,7 @@ public final class AsmrProcessor implements AutoCloseable {
             }
 
             ClassReader reader = new ClassReader(bytecode);
-
-            class ClassInfoVisitor extends ClassVisitor {
-                String superName;
-                boolean isInterface;
-
-                ClassInfoVisitor() {
-                    super(ASM_VERSION);
-                }
-
-                @Override
-                public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
-                    this.superName = superName;
-                    this.isInterface = (access & Opcodes.ACC_INTERFACE) != 0;
-                }
-            }
-
-            ClassInfoVisitor cv = new ClassInfoVisitor();
-            reader.accept(cv, ClassReader.SKIP_CODE);
-            return new ClassInfo(cv.superName, cv.isInterface);
+            return new ClassInfo(reader.getSuperName(), (reader.getAccess() & Opcodes.ACC_INTERFACE) != 0);
         });
     }
 
