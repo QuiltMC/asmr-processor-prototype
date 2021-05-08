@@ -28,7 +28,6 @@ public class AsmrReferenceSliceCapture<T extends AsmrNode<T>, L extends AsmrAbst
         return listCapture.pathPrefix();
     }
 
-
     @Override
     public AsmrAbstractListNode<T, ?> resolvedList(AsmrProcessor processor) {
         return listCapture.resolved(processor);

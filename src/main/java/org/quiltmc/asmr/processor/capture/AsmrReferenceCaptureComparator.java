@@ -25,13 +25,10 @@ public class AsmrReferenceCaptureComparator implements Comparator<AsmrReferenceC
             // pathB ended but captureB is a slice, so need to check the slice index
             int bStartIndex = captureB.startIndexInclusive();
             return bStartIndex <= pathA[i] ? -1 : 1;
-        } else {
-            // pathA and pathB both end at the same time, compare the start indexes, if tied sort by last index
+        } else { // if (pathA.length == pathB.length)
+            // pathA and pathB both end at the same time, compare the start indexes
             int aStartVirtualIndex = captureA.startVirtualIndex();
             int bStartVirtualIndex = captureB.startVirtualIndex();
-            if(aStartVirtualIndex == bStartVirtualIndex){
-                return Integer.compare(captureA.endVirtualIndex(), bStartVirtualIndex);
-            }
             return Integer.compare(aStartVirtualIndex, bStartVirtualIndex);
         }
     }

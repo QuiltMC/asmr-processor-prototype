@@ -1,7 +1,12 @@
 package org.quiltmc.asmr.processor;
 
 import org.jetbrains.annotations.Nullable;
-import org.quiltmc.asmr.processor.capture.*;
+import org.quiltmc.asmr.processor.capture.AsmrCapture;
+import org.quiltmc.asmr.processor.capture.AsmrNodeCapture;
+import org.quiltmc.asmr.processor.capture.AsmrReferenceCapture;
+import org.quiltmc.asmr.processor.capture.AsmrReferenceCaptureComparator;
+import org.quiltmc.asmr.processor.capture.AsmrReferenceSliceCapture;
+import org.quiltmc.asmr.processor.capture.AsmrSliceCapture;
 import org.quiltmc.asmr.tree.AsmrAbstractListNode;
 import org.quiltmc.asmr.tree.AsmrNode;
 import org.quiltmc.asmr.tree.AsmrTreeModificationManager;
@@ -9,7 +14,18 @@ import org.quiltmc.asmr.tree.member.AsmrClassNode;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Queue;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Consumer;
@@ -19,35 +35,9 @@ import java.util.stream.Collectors;
 
 final class AsmrProcessorRunner {
     /**
-        compares the {@code [...pathPrefix, startIndex]} of each capture by lexicographic order.
+     * compares the {@code [...pathPrefix, startIndex]} of each capture by lexicographic order.
      */
-    private static final Comparator<AsmrReferenceCapture> REF_CAPTURE_TREE_ORDER = (captureA, captureB) -> {
-        int[] pathA = captureA.pathPrefix();
-        int[] pathB = captureB.pathPrefix();
-
-        int i;
-        // find the point the two paths diverge, compare the children indexes at that point
-        for (i = 0; i < pathA.length && i < pathB.length; i++) {
-            if (pathA[i] != pathB[i]) {
-                return Integer.compare(pathA[i], pathB[i]);
-            }
-        }
-
-        if (pathA.length < pathB.length) {
-            // pathA ended, so we need to check if b lies after the start index of a
-            int aStartIndex = captureA.startIndexInclusive();
-            return aStartIndex <= pathB[i] ? -1 : 1;
-        } else if (pathB.length < pathA.length) {
-            // pathB ended, so wa need to check if a lies after the start index of b
-            int bStartIndex = captureB.startIndexInclusive();
-            return bStartIndex <= pathA[i] ? -1 : 1;
-        } else { // if (pathA.length == pathB.length)
-            // pathA and pathB both end at the same time, compare their start indexes
-            int aStartVirtualIndex = captureA.startVirtualIndex();
-            int bStartVirtualIndex = captureB.startVirtualIndex();
-            return Integer.compare(aStartVirtualIndex, bStartVirtualIndex);
-        }
-    };
+    private static final Comparator<AsmrReferenceCapture> REF_CAPTURE_TREE_ORDER = new AsmrReferenceCaptureComparator();
 
     private final AsmrProcessor processor;
 
@@ -442,6 +432,7 @@ final class AsmrProcessorRunner {
             Ref refA = refs.get(indexA);
             int[] pathPrefixA = refA.capture.pathPrefix();
 
+            bLoop:
             for (int indexB = indexA + 1; indexB < refs.size(); indexB++) {
                 Ref refB = refs.get(indexB);
                 int[] pathPrefixB = refB.capture.pathPrefix();
@@ -451,12 +442,12 @@ final class AsmrProcessorRunner {
                 int aLength = pathPrefixA.length;
 
                 if (bLength < aLength) {
-                    break;
+                    break bLoop;
                 }
 
                 for (int i = 0; i < aLength; i++) {
                     if (pathPrefixB[i] != pathPrefixA[i]) {
-                        break;
+                        break bLoop;
                     }
                 }
 
@@ -467,19 +458,19 @@ final class AsmrProcessorRunner {
                 int bStartPathAtEndOfA = (bLength > aLength) ? pathPrefixB[aLength] : bCapture.startVirtualIndex();
 
                 if (bStartPathAtEndOfA >= aCapture.endIndexExclusive()) {
-                    break;
+                    break bLoop;
                 }
 
                 // at this point we know that refA collides with refB
 
                 // check if they are from the same write for early exit
                 if (refA.write == refB.write) {
-                    continue;
+                    continue bLoop;
                 }
 
                 // if they are both inputs they never impose a restriction
                 if (refA.isInput && refB.isInput) {
-                    continue;
+                    continue bLoop;
                 }
 
                 // check if b is completely contained within a
@@ -492,7 +483,7 @@ final class AsmrProcessorRunner {
                     int startB = refB.capture.startVirtualIndex();
                     int endB = refB.capture.endVirtualIndex();
                     if (startA == startB && endA == endB) {
-                        continue;
+                        continue bLoop;
                     }
 
                     if (startB >= startA && endB <= endA) {
