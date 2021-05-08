@@ -3,8 +3,7 @@ package transformer.test.org.quiltmc.asmr.processor.verifier.blacklist.simple;
 import org.quiltmc.asmr.processor.AsmrProcessor;
 import org.quiltmc.asmr.processor.AsmrTransformer;
 import org.quiltmc.asmr.processor.annotation.test.VerifierTests;
-import org.quiltmc.asmr.processor.test.annotation.InternalClass;
-import org.quiltmc.asmr.processor.verifier.FridgeVerifier;
+import org.quiltmc.asmr.verifier.FridgeVerifier;
 
 import java.util.List;
 

@@ -3,7 +3,7 @@ package transformer.test.org.quiltmc.asmr.processor.verifier.whitelist;
 import org.quiltmc.asmr.processor.AsmrProcessor;
 import org.quiltmc.asmr.processor.AsmrTransformer;
 import org.quiltmc.asmr.processor.annotation.test.VerifierTests;
-import org.quiltmc.asmr.processor.tree.AsmrNode;
+import org.quiltmc.asmr.tree.AsmrNode;
 
 import java.util.List;
 

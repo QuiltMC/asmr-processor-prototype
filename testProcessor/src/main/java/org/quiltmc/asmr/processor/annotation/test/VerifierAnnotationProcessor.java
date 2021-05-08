@@ -30,7 +30,7 @@ public class VerifierAnnotationProcessor extends AbstractProcessor {
 			writer.write(annotated.getSimpleName().toString().substring(0, 1).toLowerCase(Locale.US));
 			writer.write(annotated.getSimpleName().toString().substring(1));
 			writer.write("() {" +
-					" org.junit.jupiter.api.Assertions.assertFalse(org.quiltmc.asmr.processor.verifier.FridgeVerifier" +
+					" org.junit.jupiter.api.Assertions.assertFalse(org.quiltmc.asmr.verifier.FridgeVerifier" +
 					".verify(new org.quiltmc.asmr.processor.test.AsmrTestPlatform(), org.quiltmc.asmr.processor.test.AsmrClassTestUtil.findClassBytes(");
 			writer.write(element.getQualifiedName().toString());
 			writer.write(".class)));}");
@@ -42,7 +42,7 @@ public class VerifierAnnotationProcessor extends AbstractProcessor {
 			writer.write(annotated.getSimpleName().toString().substring(0, 1).toLowerCase(Locale.US));
 			writer.write(annotated.getSimpleName().toString().substring(1));
 			writer.write("() {" +
-					" org.junit.jupiter.api.Assertions.assertTrue(org.quiltmc.asmr.processor.verifier.FridgeVerifier" +
+					" org.junit.jupiter.api.Assertions.assertTrue(org.quiltmc.asmr.verifier.FridgeVerifier" +
 					".verify(new org.quiltmc.asmr.processor.test.AsmrTestPlatform(), org.quiltmc.asmr.processor.test.AsmrClassTestUtil.findClassBytes(");
 			writer.write(element.getQualifiedName().toString());
 			writer.write(".class)));}");

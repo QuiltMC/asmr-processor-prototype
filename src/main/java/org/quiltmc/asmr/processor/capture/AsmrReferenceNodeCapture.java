@@ -2,8 +2,8 @@ package org.quiltmc.asmr.processor.capture;
 
 import org.jetbrains.annotations.ApiStatus;
 import org.quiltmc.asmr.processor.AsmrProcessor;
-import org.quiltmc.asmr.processor.tree.AsmrNode;
-import org.quiltmc.asmr.processor.tree.member.AsmrClassNode;
+import org.quiltmc.asmr.tree.AsmrNode;
+import org.quiltmc.asmr.tree.member.AsmrClassNode;
 
 import java.util.ArrayList;
 import java.util.Arrays;
