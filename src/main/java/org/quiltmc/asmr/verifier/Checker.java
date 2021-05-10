@@ -210,7 +210,7 @@ final class Checker {
 
 	private static boolean classAllowedForLambdaReturn(String name) throws ClassNotFoundException {
 		Class<?> cl = Class.forName(name.replace('/', '.'));
-		return !cl.isAnnotationPresent(ApiStatus.Internal.class);
+		return !cl.isAnnotationPresent(ApiStatus.NonExtendable.class);
 	}
 
 	static String getVerificationDescriptorForClass(final Class c) {
