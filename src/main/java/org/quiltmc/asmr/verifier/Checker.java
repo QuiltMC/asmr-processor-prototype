@@ -1,5 +1,8 @@
 package org.quiltmc.asmr.verifier;
 
+import org.jetbrains.annotations.ApiStatus;
+import org.objectweb.asm.Type;
+import org.quiltmc.asmr.processor.annotation.AllowLambdaCapture;
 import org.quiltmc.json5.JsonReader;
 
 import java.io.*;
@@ -39,6 +42,11 @@ final class Checker {
 	private static final HashSet<VerificationDesc> BLACKLIST_FIELDS = new HashSet<>();
 	private static final HashSet<VerificationDesc> WHITELIST_FIELDS = new HashSet<>();
 
+	private static final HashSet<String> WHITELIST_LAMBDA_CAPTURE_CLASSES = new HashSet<>();
+	static {
+		WHITELIST_LAMBDA_CAPTURE_CLASSES.add("java/lang/String");
+	}
+
 	static boolean allowClass(String clazz) {
 		try {
 			return classWhitelisted(clazz) && !classBlacklisted(clazz);
@@ -63,6 +71,23 @@ final class Checker {
 			throw new RuntimeException(e); // TODO: remove
 		}
 	}
+
+	static boolean allowLambdaCapture(String name) {
+		try {
+			return typeAllowedForLambdaCapture(name);
+		} catch (ClassNotFoundException e) {
+			throw new RuntimeException(e); // TODO: remove
+		}
+	}
+
+	static boolean allowLambdaReturn(String descriptor) {
+		try {
+			return classAllowedForLambdaReturn(descriptor);
+		} catch (ClassNotFoundException e) {
+			throw new RuntimeException(e); // TODO: remove
+		}
+	}
+
 	// TODO: we can probably cache this?
 	private static boolean classWhitelisted(String name) throws ClassNotFoundException {
 		boolean whitelisted = false;
@@ -168,6 +193,24 @@ final class Checker {
 		Class<?> cl = Class.forName(clazz.replace('/', '.'));
 		String realOwner = cl.getField(name).getDeclaringClass().getName().replace('.', '/');
 		return BLACKLIST_FIELDS.contains(new VerificationDesc(realOwner, name, descriptor));
+	}
+
+	private static boolean typeAllowedForLambdaCapture(String name) throws ClassNotFoundException {
+		if ("VZCBSIFJD".contains(name)) {
+			return true;
+		}
+
+		if (WHITELIST_LAMBDA_CAPTURE_CLASSES.contains(name)) {
+			return true;
+		}
+
+		Class<?> cl = Class.forName(name.replace('/', '.'));
+		return cl.isAnnotationPresent(AllowLambdaCapture.class);
+	}
+
+	private static boolean classAllowedForLambdaReturn(String name) throws ClassNotFoundException {
+		Class<?> cl = Class.forName(name.replace('/', '.'));
+		return !cl.isAnnotationPresent(ApiStatus.Internal.class);
 	}
 
 	static String getVerificationDescriptorForClass(final Class c) {

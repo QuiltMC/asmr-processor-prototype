@@ -4,6 +4,9 @@ import org.objectweb.asm.*;
 import org.quiltmc.asmr.processor.AsmrPlatform;
 import org.quiltmc.asmr.processor.AsmrProcessor;
 
+import java.lang.invoke.MethodHandle;
+import java.util.Arrays;
+
 /**
  * Tells misbehaving transformers to cool down and color between the lines.
  */
@@ -21,8 +24,8 @@ Y Certain method modifiers will be disallowed, such as ACC_SYNCHRONIZED and ACC_
 - All usages of the invokedynamic instruction will be disallowed except:
    y If the BSM is a member of java/lang/invoke/StringConcatFactory.
    y If the BSM is java/lang/invoke/LambdaMetafactory.metafactory, and:
-      - **** The return type additionally is not annotated as @ApiStatus.NotExtendable.
-      - **** The lambda captures are either primitive types, from a short list of acceptable JDK classes (e.g. String), or annotated with @AllowLambdaCapture.
+      y The return type additionally is not annotated as @ApiStatus.NotExtendable.
+      y The lambda captures are either primitive types, from a short list of acceptable JDK classes (e.g. String), or annotated with @AllowLambdaCapture.
 y All verified classes shall extend java/lang/Object.
 y Verified classes may only have fields with the ACC_FINAL modifier. In addition, these fields shall only be from a short list of allowable types, such as primitive types and String.
    y  all putfield and putstatic instructions whose owner is the current transformer class will be disallowed, unless they are in a <init> or <clinit> method.
@@ -113,7 +116,31 @@ public final class FridgeVerifier extends ClassVisitor {
 			if (bootstrapMethodHandle.getOwner().equals("java/lang/invoke/StringConcatFactory")) {
 				super.visitInvokeDynamicInsn(name, descriptor, bootstrapMethodHandle, bootstrapMethodArguments);
 			} else if (bootstrapMethodHandle.getOwner().equals("java/lang/invoke/LambdaMetafactory")) {
-				// TODO: check the captures
+				/*
+				 A lambda declaration with captured variables, like this:
+				 	int a = something();
+				 	int b = somethingElse();
+				 	list.removeIf(it -> { // it is a String
+				 		return var2 >= it.length() && it.length() <= var3;
+        		 	});
+ 				 looks like this in bytecode:
+					INVOKEDYNAMIC test(II)Ljava/util/function/Predicate; [
+      					java/lang/invoke/LambdaMetafactory.metafactory([snip])Ljava/lang/invoke/CallSite;
+      					// arguments:
+      					(Ljava/lang/Object;)Z,
+						pkg/TestClassLambda.lambda$testLambda6$4(IILjava/lang/String;)Z,
+      					(Ljava/lang/String;)Z
+    				]
+    			 Looking at the metafactory method, we can see it has three more arguments. These are put onto the stack
+    			 by INVOKEDYNAMIC and are therefore not accessable in this visitor.
+
+    			 We want to find the lambda return type, the lambda capture types, and the class which owns the actual
+    			 lambda method.
+
+    			 The lambda return type (and argument types) can be found via the third argument. (here boolean)
+    			 The class which owns the lambda method can be found via the second argument. (here pkg/TestClassLambda)
+    			 The lambda capture types are found in the descriptor of the INVOKEDYNAMIC instruction. (Here two ints)
+				 */
 				Handle target = ((Handle) bootstrapMethodArguments[1]);
 				if (target.getOwner().equals(className)) {
 					super.visitInvokeDynamicInsn(name, descriptor, bootstrapMethodHandle, bootstrapMethodArguments);
@@ -123,7 +150,17 @@ public final class FridgeVerifier extends ClassVisitor {
 				if (!Checker.allowClass(target.getOwner())) {
 					throw new VerificationException(className, methodName, "");
 				}
-				// TODO: check the method being called
+
+				for (Type capturedType : Type.getMethodType(descriptor).getArgumentTypes()) {
+					if (!Checker.allowLambdaCapture(capturedType.getDescriptor())) {
+						throw new VerificationException(className, methodName, "");
+					}
+				}
+
+				Type instantiatedType = ((Type) bootstrapMethodArguments[2]);
+				if (!Checker.allowLambdaReturn(instantiatedType.getReturnType().getClassName())) {
+					throw new VerificationException(className, methodName, "");
+				}
 			} else {
 				throw new VerificationException(className, methodName, "");
 			}
