@@ -1,1 +1,3 @@
 org.quiltmc.asmr.processor.annotation.HideFromTransformersProcessor
+org.quiltmc.asmr.processor.annotation.AllowLambdaCaptureProcessor
+org.quiltmc.asmr.processor.annotation.DisallowLambdaReturnProcessor

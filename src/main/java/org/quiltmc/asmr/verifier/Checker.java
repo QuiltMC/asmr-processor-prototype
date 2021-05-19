@@ -3,6 +3,7 @@ package org.quiltmc.asmr.verifier;
 import org.jetbrains.annotations.ApiStatus;
 import org.objectweb.asm.Type;
 import org.quiltmc.asmr.processor.annotation.AllowLambdaCapture;
+import org.quiltmc.asmr.tree.AsmrListNode;
 import org.quiltmc.json5.JsonReader;
 
 import java.io.*;
@@ -46,6 +47,7 @@ final class Checker {
 	static {
 		WHITELIST_LAMBDA_CAPTURE_CLASSES.add("java/lang/String");
 	}
+	private static final HashSet<String> BLACKLIST_LAMBDA_RETURN_CLASSES = new HashSet<>();
 
 	static boolean allowClass(String clazz) {
 		try {
@@ -200,17 +202,11 @@ final class Checker {
 			return true;
 		}
 
-		if (WHITELIST_LAMBDA_CAPTURE_CLASSES.contains(name)) {
-			return true;
-		}
-
-		Class<?> cl = Class.forName(name.replace('/', '.'));
-		return cl.isAnnotationPresent(AllowLambdaCapture.class);
+		return WHITELIST_LAMBDA_CAPTURE_CLASSES.contains(name);
 	}
 
 	private static boolean classAllowedForLambdaReturn(String name) throws ClassNotFoundException {
-		Class<?> cl = Class.forName(name.replace('/', '.'));
-		return !cl.isAnnotationPresent(ApiStatus.NonExtendable.class);
+		return !BLACKLIST_LAMBDA_RETURN_CLASSES.contains(name);
 	}
 
 	static String getVerificationDescriptorForClass(final Class c) {
@@ -306,6 +302,56 @@ final class Checker {
 						}
 						reader.endArray();
 						break;
+				}
+			}
+			reader.endObject();
+			reader.close();
+		} catch (IOException ex) {
+			throw new UncheckedIOException(ex);
+		}
+	}
+
+	static void loadGeneratedCaptureWhitelist() {
+		// TODO: use asmrplatform to load this
+		InputStream stream = ClassLoader.getSystemResourceAsStream("generated_capture_whitelist.json");
+		if (stream == null) {
+			throw new IllegalStateException("Cannot load generated capture whitelist from annotation processor");
+		}
+		JsonReader reader = JsonReader.createStrict(new BufferedReader(new InputStreamReader(stream)));
+		try {
+			reader.beginObject();
+			while(reader.hasNext()) {
+				if ("classes".equals(reader.nextName())) {
+					reader.beginArray();
+					while (reader.hasNext()) {
+						WHITELIST_LAMBDA_CAPTURE_CLASSES.add(reader.nextString());
+					}
+					reader.endArray();
+				}
+			}
+			reader.endObject();
+			reader.close();
+		} catch (IOException ex) {
+			throw new UncheckedIOException(ex);
+		}
+	}
+
+	static void loadGeneratedLambdaReturnBlacklist() {
+		// TODO: use asmrplatform to load this
+		InputStream stream = ClassLoader.getSystemResourceAsStream("generated_lambda_return_blacklist.json");
+		if (stream == null) {
+			throw new IllegalStateException("Cannot load generated lambda return blacklist from annotation processor");
+		}
+		JsonReader reader = JsonReader.createStrict(new BufferedReader(new InputStreamReader(stream)));
+		try {
+			reader.beginObject();
+			while(reader.hasNext()) {
+				if ("classes".equals(reader.nextName())) {
+					reader.beginArray();
+					while (reader.hasNext()) {
+						BLACKLIST_LAMBDA_RETURN_CLASSES.add(reader.nextString());
+					}
+					reader.endArray();
 				}
 			}
 			reader.endObject();
