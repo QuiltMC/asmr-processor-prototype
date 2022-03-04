@@ -1,3 +1,5 @@
+> ❗ This prototype has fulfilled its purpose and is now archived in favor of [Chasm](https://github.com/QuiltMC/chasm). ❗
+
 # ASMR Processor Prototype
 This project is intended to prototype design ideas for the ASMR backend and processor, to see what problems may be encountered in practice.
 
